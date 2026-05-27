@@ -1,0 +1,18 @@
+{
+  "name": "Nutrition Guide",
+  "short_name": "Nutrition",
+  "description": "Your personal nutrition tracker — Biolayne framework",
+  "start_url": "./Biolayne Nutrition App.html",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#6c63ff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236c63ff'/><text x='50' y='68' font-size='55' text-anchor='middle' font-family='sans-serif'>🥗</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
