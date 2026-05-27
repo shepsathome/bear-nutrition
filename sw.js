@@ -1,7 +1,7 @@
-const CACHE_NAME = 'nutrition-v1';
+const CACHE_NAME = 'nutrition-v2';
 const ASSETS = [
   './',
-  './Biolayne Nutrition App.html',
+  './index.html',
   'https://cdn.jsdelivr.net/npm/chart.js@4'
 ];
 
@@ -27,6 +27,6 @@ self.addEventListener('fetch', e => {
         caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
       }
       return resp;
-    })).catch(() => caches.match('./Biolayne Nutrition App.html'))
+    })).catch(() => caches.match('./index.html'))
   );
 });
