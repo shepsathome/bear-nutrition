@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#6c63ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Nutrition Guide</title>
+<title>Bear Nutrition</title>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
@@ -173,13 +173,28 @@ body {
   background: transparent; width: 100%; margin-bottom: 16px;
 }
 .add-meal-btn:active { border-color: var(--primary); color: var(--primary); }
-.quick-foods-wrap { padding: 6px 16px 12px; display: flex; flex-wrap: wrap; gap: 5px; }
-.qf-btn {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
-  padding: 4px 10px; font-size: 0.72rem; cursor: pointer; color: var(--text-muted);
-  white-space: nowrap;
-}
-.qf-btn:active { border-color: var(--primary); color: var(--primary); }
+.quick-foods-wrap { padding: 0 16px 12px; position: relative; }
+.food-search-label { display: block; font-size: 0.68rem; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.food-search-box { position: relative; }
+.food-search-input { width: 100%; padding: 11px 12px; border: 1px solid var(--input-border); border-radius: 10px; font-size: 0.85rem; background: var(--input-bg); color: var(--text); }
+.food-search-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
+.food-search-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 32px var(--shadow); max-height: 260px; overflow-y: auto; z-index: 8; display: none; }
+.food-search-results.show { display: block; }
+.food-search-empty { padding: 12px; font-size: 0.82rem; color: var(--text-muted); }
+.food-search-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border-bottom: 1px solid var(--border); cursor: pointer; background: var(--bg-card); }
+.food-search-item:last-child { border-bottom: none; }
+.food-search-item:active { background: rgba(108,99,255,0.08); }
+.food-search-meta { flex: 1; min-width: 0; }
+.food-search-name { font-size: 0.84rem; font-weight: 600; margin-bottom: 4px; }
+.food-search-detail { font-size: 0.74rem; color: var(--text-muted); line-height: 1.35; }
+.food-search-add-btn { background: transparent; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 6px 10px; font-size: 0.74rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.food-search-add-btn:active { background: var(--primary); color: #fff; }
+.food-search-hint { padding: 10px 2px 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.4; }
+.app-info-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.app-update-status { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; }
+.app-update-status.success { color: var(--success); border-color: rgba(0,184,148,0.25); }
+.app-update-status.error { color: var(--danger); border-color: rgba(225,112,85,0.25); }
+.app-update-status.info { color: var(--text); }
 /* ===== WEIGHT LOG ===== */
 .weight-entry { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .weight-entry:last-child { border-bottom: none; }
@@ -284,7 +299,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 
 <!-- ===== TOP BAR ===== -->
 <div class="top-bar">
-  <h1 id="topTitle">🥗 Dashboard</h1>
+  <h1 id="topTitle">🧸 Dashboard</h1>
   <div class="top-bar-actions">
     <button class="top-bar-btn" onclick="toggleTheme()" title="Toggle dark mode">🌓</button>
   </div>
@@ -294,7 +309,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 <div class="onboarding" id="onboarding">
   <div class="emoji-hero">🥗</div>
   <h1>Welcome! 💜</h1>
-  <p class="subtitle">Let's set up your nutrition targets using the Biolayne evidence-based framework. This takes about 30 seconds.</p>
+  <p class="subtitle">Let's set up your nutrition targets using an evidence-based framework. This takes about 30 seconds.</p>
 
   <div class="form-group">
     <label>Your Name (optional)</label>
@@ -498,11 +513,11 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
   <!-- ===== PLAN ===== -->
   <div class="screen" id="screen-plan">
     <div class="section-title">🍽️ Your Meal Plan</div>
-    <div class="section-subtitle">Sample meals scaled to your macro targets, based on the Biolayne framework.</div>
+    <div class="section-subtitle">Sample meals scaled to your macro targets.</div>
 
     <div id="planMeals"></div>
 
-    <div class="section-title mt-16">📚 Nutrition Guide</div>
+    <div class="section-title mt-16">📚 Bear's Nutrition Guide</div>
 
     <!-- Accordions for educational content -->
     <div class="accordion">
@@ -655,8 +670,18 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
       </div>
     </div>
 
+    <div class="card">
+      <h3>App Info</h3>
+      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.13</strong></div>
+      <div class="app-info-actions">
+        <button class="btn btn-sm btn-outline" id="update-btn" onclick="checkForAppUpdate()">🔄 Check for Updates</button>
+        <button class="btn btn-sm btn-outline" onclick="forceAppRefresh()">🔥 Force Refresh</button>
+      </div>
+      <div class="app-update-status info" id="update-status">Home-screen installs can take a beat to pick up service worker updates, so force refresh if something looks stale.</div>
+    </div>
+
     <div style="text-align: center; padding: 20px 0; color: var(--text-muted); font-size: 0.78rem;">
-      <p>Made with 💜 — Biolayne Framework</p>
+      <p>Made with 💜 — Bear Nutrition</p>
       <p>Consult a healthcare professional before making significant dietary changes.</p>
     </div>
   </div>
@@ -678,6 +703,8 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 // ============================================================
 const DB_NAME = 'NutritionApp';
 const DB_VERSION = 2;
+const APP_VERSION = '2026.06.13';
+const FOOD_SEARCH_LIMIT = 8;
 let db = null;
 
 function openDB() {
@@ -742,45 +769,193 @@ function dbClear(store) {
 }
 
 // ============================================================
-// QUICK FOODS DATABASE
+// FOODS DATABASE
 // ============================================================
-const QUICK_FOODS = [
-  { name: 'Florelli Tuna (100g drained)', p: 25, c: 0, f: 10 },
-  { name: 'Salad Leaves (30g)', p: 0.4, c: 0.5, f: 0.1 },
-  { name: 'Pear — half', p: 0.3, c: 12, f: 0.1 },
-  { name: 'Sweetcorn tinned (80g)', p: 2.5, c: 12, f: 1.2 },
-  { name: 'Walnuts (20g)', p: 3, c: 1.4, f: 13 },
-  { name: 'Olive Oil (1 tbsp)', p: 0, c: 0, f: 14 },
-  { name: 'Balsamic Vinegar (1 tbsp)', p: 0.1, c: 2.7, f: 0 },
-  { name: 'Strawberries (80g)', p: 0.5, c: 5.5, f: 0.2 },
-  { name: 'Blueberries (80g)', p: 0.6, c: 9.2, f: 0.3 },
-  { name: 'Blackberries (80g)', p: 1.1, c: 3.6, f: 0.4 },
-  { name: 'Raspberries (80g)', p: 1, c: 4.2, f: 0.5 },
-  { name: 'Green Tea', p: 0, c: 0, f: 0 },
-  { name: 'Dried Mango (30g)', p: 0.5, c: 22, f: 0.2 },
-  { name: 'Choc Chip Cookie (1)', p: 3, c: 24, f: 9 },
-  { name: 'Haricot Beans (80g)', p: 5, c: 12, f: 0.4 },
-  { name: 'Greek Yoghurt (150g)', p: 9, c: 6, f: 8 },
-  { name: 'Sourdough Toast (1 slice)', p: 5, c: 24, f: 3 },
-  { name: 'Grass Fed Butter (10g)', p: 0.1, c: 0, f: 8 },
-  { name: 'Homemade Granola (50g)', p: 7, c: 25, f: 16 },
-  { name: 'BBQ Crisps (25g)', p: 1.2, c: 15, f: 3.2 },
-  { name: 'Dark Choc 80% (20g)', p: 2.4, c: 7, f: 8.5 },
-  { name: 'Chicken Breast (100g)', p: 31, c: 0, f: 3.6 },
-  { name: 'Salmon (100g)', p: 25, c: 0, f: 13 },
-  { name: 'Egg (1 large)', p: 6, c: 0.6, f: 5 },
-  { name: 'Rice (150g cooked)', p: 4, c: 45, f: 0.5 },
-  { name: 'Banana (1 medium)', p: 1.3, c: 27, f: 0.4 },
-  { name: 'Avocado (half)', p: 2, c: 6, f: 15 },
-  { name: 'Peanut Butter (1 tbsp)', p: 4, c: 3, f: 8 },
-  { name: 'Cheddar (30g)', p: 7, c: 0.4, f: 10 },
-  { name: 'Protein Shake (1 scoop)', p: 24, c: 3, f: 1.5 },
-  { name: 'Apple (1 medium)', p: 0.5, c: 25, f: 0.3 },
-  { name: 'Sweet Potato (150g)', p: 2, c: 30, f: 0.1 },
-  { name: 'Pasta (150g cooked)', p: 7, c: 47, f: 1 },
-  { name: 'Oats (40g dry)', p: 5, c: 27, f: 3 },
-  { name: 'Milk Semi-Skimmed (200ml)', p: 7, c: 10, f: 4 },
-  { name: 'Toast + PB', p: 9, c: 27, f: 11 },
+const FOODS = [
+  // Proteins
+  { name: 'Chicken Breast (cooked)', cal: 165, protein: 31, carbs: 0, fat: 3.6, serving: 150, unit: 'g' },
+  { name: 'Turkey Breast (cooked)', cal: 135, protein: 29, carbs: 0, fat: 1.6, serving: 150, unit: 'g' },
+  { name: 'Salmon', cal: 208, protein: 20.4, carbs: 0, fat: 13.4, serving: 140, unit: 'g' },
+  { name: 'Tuna (canned in water)', cal: 116, protein: 25.5, carbs: 0, fat: 0.8, serving: 120, unit: 'g' },
+  { name: 'Cod', cal: 82, protein: 18, carbs: 0, fat: 0.7, serving: 150, unit: 'g' },
+  { name: 'Prawns', cal: 99, protein: 24, carbs: 0.2, fat: 0.3, serving: 150, unit: 'g' },
+  { name: 'Eggs (whole)', cal: 143, protein: 12.6, carbs: 0.7, fat: 9.5, serving: 120, unit: 'g' },
+  { name: 'Egg Whites', cal: 52, protein: 10.9, carbs: 0.7, fat: 0.2, serving: 150, unit: 'g' },
+  { name: 'Beef Steak (lean)', cal: 187, protein: 29, carbs: 0, fat: 7, serving: 180, unit: 'g' },
+  { name: 'Beef Mince (5% fat)', cal: 137, protein: 21, carbs: 0, fat: 5, serving: 150, unit: 'g' },
+  { name: 'Pork Loin', cal: 172, protein: 27, carbs: 0, fat: 6, serving: 150, unit: 'g' },
+  { name: 'Greek Yoghurt (0% fat)', cal: 59, protein: 10.3, carbs: 3.6, fat: 0.4, serving: 170, unit: 'g' },
+  { name: 'Cottage Cheese', cal: 98, protein: 11.1, carbs: 3.4, fat: 4.3, serving: 150, unit: 'g' },
+  { name: 'Whey Protein Powder', cal: 400, protein: 80, carbs: 8, fat: 7, serving: 30, unit: 'g' },
+  { name: 'Tofu', cal: 144, protein: 17.3, carbs: 2.8, fat: 8.7, serving: 150, unit: 'g' },
+  { name: 'Tempeh', cal: 193, protein: 20.3, carbs: 7.6, fat: 10.8, serving: 120, unit: 'g' },
+  { name: 'Skyr', cal: 63, protein: 11, carbs: 4, fat: 0.2, serving: 170, unit: 'g' },
+
+  // Carbs
+  { name: 'White Rice (cooked)', cal: 130, protein: 2.7, carbs: 28.2, fat: 0.3, serving: 180, unit: 'g' },
+  { name: 'Brown Rice (cooked)', cal: 123, protein: 2.7, carbs: 25.6, fat: 1, serving: 180, unit: 'g' },
+  { name: 'Pasta (cooked)', cal: 157, protein: 5.8, carbs: 30.9, fat: 0.9, serving: 180, unit: 'g' },
+  { name: 'Quinoa (cooked)', cal: 120, protein: 4.4, carbs: 21.3, fat: 1.9, serving: 185, unit: 'g' },
+  { name: 'Oats (dry)', cal: 389, protein: 16.9, carbs: 66.3, fat: 6.9, serving: 50, unit: 'g' },
+  { name: 'Granola', cal: 471, protein: 10, carbs: 64, fat: 20, serving: 50, unit: 'g' },
+  { name: 'Sweet Potato (baked)', cal: 90, protein: 2, carbs: 20.7, fat: 0.2, serving: 200, unit: 'g' },
+  { name: 'White Potato (baked)', cal: 93, protein: 2.5, carbs: 21.2, fat: 0.1, serving: 250, unit: 'g' },
+  { name: 'Bread (white)', cal: 265, protein: 8.7, carbs: 49, fat: 3.2, serving: 30, unit: 'g' },
+  { name: 'Bread (wholemeal)', cal: 247, protein: 12.5, carbs: 41.2, fat: 4.2, serving: 30, unit: 'g' },
+  { name: 'Banana', cal: 89, protein: 1.1, carbs: 22.8, fat: 0.3, serving: 120, unit: 'g' },
+  { name: 'Apple', cal: 52, protein: 0.3, carbs: 13.8, fat: 0.2, serving: 180, unit: 'g' },
+  { name: 'Rice Cakes', cal: 387, protein: 8, carbs: 81, fat: 3, serving: 18, unit: 'g' },
+  { name: 'Bagel', cal: 250, protein: 10, carbs: 49, fat: 1.5, serving: 90, unit: 'g' },
+  { name: 'Wrap (plain tortilla)', cal: 310, protein: 8, carbs: 52, fat: 7, serving: 60, unit: 'g' },
+
+  // Fats & Nuts
+  { name: 'Avocado', cal: 160, protein: 2, carbs: 8.5, fat: 14.7, serving: 100, unit: 'g' },
+  { name: 'Olive Oil', cal: 884, protein: 0, carbs: 0, fat: 100, serving: 15, unit: 'g' },
+  { name: 'Peanut Butter', cal: 588, protein: 25, carbs: 20, fat: 50, serving: 20, unit: 'g' },
+  { name: 'Almond Butter', cal: 614, protein: 21, carbs: 19, fat: 56, serving: 20, unit: 'g' },
+  { name: 'Almonds', cal: 579, protein: 21.2, carbs: 21.6, fat: 49.9, serving: 30, unit: 'g' },
+  { name: 'Walnuts', cal: 654, protein: 15.2, carbs: 13.7, fat: 65.2, serving: 30, unit: 'g' },
+  { name: 'Cashews', cal: 553, protein: 18.2, carbs: 30.2, fat: 43.8, serving: 30, unit: 'g' },
+  { name: 'Coconut Oil', cal: 892, protein: 0, carbs: 0, fat: 100, serving: 15, unit: 'g' },
+  { name: 'Mixed Nuts', cal: 607, protein: 20, carbs: 18, fat: 54, serving: 30, unit: 'g' },
+
+  // Dairy
+  { name: 'Whole Milk', cal: 64, protein: 3.4, carbs: 4.7, fat: 3.6, serving: 250, unit: 'ml' },
+  { name: 'Semi-skimmed Milk', cal: 47, protein: 3.6, carbs: 4.8, fat: 1.7, serving: 250, unit: 'ml' },
+  { name: 'Skimmed Milk', cal: 34, protein: 3.6, carbs: 5, fat: 0.2, serving: 250, unit: 'ml' },
+  { name: 'Cheddar Cheese', cal: 402, protein: 25, carbs: 1.3, fat: 33, serving: 30, unit: 'g' },
+  { name: 'Mozzarella', cal: 280, protein: 28, carbs: 3.1, fat: 17, serving: 50, unit: 'g' },
+  { name: 'Butter', cal: 717, protein: 0.9, carbs: 0.1, fat: 81.1, serving: 10, unit: 'g' },
+  { name: 'Cream Cheese (light)', cal: 160, protein: 7, carbs: 6, fat: 11, serving: 30, unit: 'g' },
+
+  // Vegetables
+  { name: 'Broccoli', cal: 34, protein: 2.8, carbs: 6.6, fat: 0.4, serving: 100, unit: 'g' },
+  { name: 'Spinach', cal: 23, protein: 2.9, carbs: 3.6, fat: 0.4, serving: 80, unit: 'g' },
+  { name: 'Kale', cal: 49, protein: 4.3, carbs: 8.8, fat: 0.9, serving: 80, unit: 'g' },
+  { name: 'Green Beans', cal: 31, protein: 1.8, carbs: 7, fat: 0.2, serving: 100, unit: 'g' },
+  { name: 'Peppers (bell)', cal: 31, protein: 1, carbs: 6, fat: 0.3, serving: 100, unit: 'g' },
+  { name: 'Tomatoes', cal: 18, protein: 0.9, carbs: 3.9, fat: 0.2, serving: 100, unit: 'g' },
+  { name: 'Mushrooms', cal: 22, protein: 3.1, carbs: 3.3, fat: 0.3, serving: 100, unit: 'g' },
+  { name: 'Carrots', cal: 41, protein: 0.9, carbs: 9.6, fat: 0.2, serving: 80, unit: 'g' },
+  { name: 'Cucumber', cal: 15, protein: 0.7, carbs: 3.6, fat: 0.1, serving: 100, unit: 'g' },
+  { name: 'Onion', cal: 40, protein: 1.1, carbs: 9.3, fat: 0.1, serving: 80, unit: 'g' },
+
+  // Common Meals & Snacks
+  { name: 'Protein Bar (average)', cal: 370, protein: 30, carbs: 35, fat: 10, serving: 60, unit: 'g' },
+  { name: 'Grenade Fudged Up Bar', cal: 350, protein: 36, carbs: 32, fat: 13, serving: 60, unit: 'g' },
+  { name: 'Nature Valley Protein (Peanut & Choc)', cal: 489, protein: 25.6, carbs: 27.5, fat: 28.3, serving: 40, unit: 'g' },
+  { name: 'Dark Chocolate (70%)', cal: 598, protein: 7.8, carbs: 45.9, fat: 42.6, serving: 25, unit: 'g' },
+  { name: 'Hummus', cal: 166, protein: 7.9, carbs: 14.3, fat: 9.6, serving: 50, unit: 'g' },
+  { name: 'Baked Beans', cal: 78, protein: 4.7, carbs: 12.9, fat: 0.2, serving: 200, unit: 'g' },
+  { name: 'Porridge with Milk (prepared)', cal: 84, protein: 3.3, carbs: 12.3, fat: 2.2, serving: 250, unit: 'g' },
+  { name: 'Overnight Oats', cal: 126, protein: 5.2, carbs: 16.5, fat: 4.1, serving: 200, unit: 'g' },
+  { name: 'Chicken Sandwich', cal: 235, protein: 17, carbs: 23, fat: 8, serving: 180, unit: 'g' },
+
+  // Drinks
+  { name: 'Orange Juice', cal: 45, protein: 0.7, carbs: 10.4, fat: 0.2, serving: 250, unit: 'ml' },
+  { name: 'Protein Shake (typical)', cal: 80, protein: 15, carbs: 4, fat: 0.8, serving: 330, unit: 'ml' },
+  { name: 'Oat Milk', cal: 46, protein: 1, carbs: 6.7, fat: 1.5, serving: 250, unit: 'ml' },
+  { name: 'Almond Milk', cal: 13, protein: 0.4, carbs: 0.3, fat: 1.1, serving: 250, unit: 'ml' },
+  { name: 'WillPowders Keto Protein Shake (12.5g + whole milk)', cal: 80, protein: 6.5, carbs: 4.7, fat: 4.4, serving: 262, unit: 'ml' },
+  { name: 'WillPowders Bone Broth Shake (25g + 300ml whole milk)', cal: 101, protein: 8, carbs: 5.3, fat: 4.8, serving: 325, unit: 'ml' },
+  { name: 'WillPowders Bone Broth Shake (25g + 300ml skimmed milk)', cal: 74.5, protein: 8, carbs: 5.3, fat: 1.7, serving: 325, unit: 'ml' },
+  { name: 'Coca-Cola Zero', cal: 1, protein: 0, carbs: 0, fat: 0, serving: 330, unit: 'ml' },
+  { name: 'Electrolyte Drink', cal: 24, protein: 0, carbs: 5.9, fat: 0, serving: 500, unit: 'ml' },
+  { name: 'Itsu Ginger & Lime Zen\'Water', cal: 3, protein: 0.2, carbs: 0.2, fat: 0.2, serving: 250, unit: 'ml' },
+
+  // Itsu Snacks
+  { name: 'Itsu 60% Dark Chocolate Moons', cal: 535, protein: 7.5, carbs: 42.5, fat: 35, serving: 40, unit: 'g' },
+  { name: 'Itsu Sweet Chilli Toasted Cashews', cal: 590, protein: 18, carbs: 30, fat: 42.5, serving: 40, unit: 'g' },
+
+  // Homemade
+  { name: 'Sourdough Cracker (homemade)', cal: 480, protein: 7.5, carbs: 53.9, fat: 25.6, serving: 4, unit: 'g' },
+  { name: 'Salted Popcorn', cal: 500, protein: 9, carbs: 50, fat: 28, serving: 50, unit: 'g' },
+  { name: 'Vico Lentil Crisps (Fromage du Jura)', cal: 458, protein: 13, carbs: 57, fat: 19, serving: 20, unit: 'g' },
+  { name: 'M&S Olive Oil & Sea Salt Crisps', cal: 523, protein: 5.9, carbs: 52.1, fat: 31.4, serving: 40, unit: 'g' },
+  { name: 'Romana Pizza Dough (1 ball)', cal: 245, protein: 6.3, carbs: 47.5, fat: 2.5, serving: 220, unit: 'g' },
+  { name: 'Sourdough Neapolitan Dough (1 ball)', cal: 241, protein: 6.6, carbs: 50.2, fat: 0.7, serving: 250, unit: 'g' },
+  { name: 'Fior di Latte Mozzarella', cal: 280, protein: 22, carbs: 0, fat: 22, serving: 70, unit: 'g' },
+  { name: 'Mozzarella di Bufala', cal: 288, protein: 17, carbs: 0.4, fat: 24, serving: 90, unit: 'g' },
+
+  // Fruit
+  { name: 'Blueberries', cal: 57, protein: 0.7, carbs: 14.5, fat: 0.3, serving: 80, unit: 'g' },
+  { name: 'Raspberries', cal: 52, protein: 1.2, carbs: 12, fat: 0.6, serving: 80, unit: 'g' },
+  { name: 'Strawberries', cal: 32, protein: 0.7, carbs: 7.7, fat: 0.3, serving: 80, unit: 'g' },
+
+  // Adam's Kitchen
+  { name: 'Homemade Granola', cal: 503, protein: 12.8, carbs: 40.7, fat: 34.6, serving: 50, unit: 'g' },
+  { name: 'Protein Bar (homemade)', cal: 443, protein: 21, carbs: 43, fat: 22, serving: 35, unit: 'g' },
+  { name: 'Bean Mix (homemade)', cal: 75, protein: 4.5, carbs: 10, fat: 0.6, serving: 400, unit: 'g' },
+  { name: 'Chocolate Chip Cookie (homemade)', cal: 473, protein: 7.5, carbs: 60, fat: 22.5, serving: 40, unit: 'g' },
+  { name: 'WW Oat Choc Chip Cookie (Smitten)', cal: 496, protein: 7.4, carbs: 61, fat: 27, serving: 40, unit: 'g' },
+  { name: 'Scrambled Eggs', cal: 148, protein: 10.6, carbs: 1.6, fat: 11, serving: 120, unit: 'g' },
+  { name: 'Buttermilk Pancakes (half batch)', cal: 200, protein: 6, carbs: 28, fat: 7, serving: 225, unit: 'g' },
+
+  // Branded / Specific
+  { name: 'Greek Yoghurt (full fat)', cal: 97, protein: 9, carbs: 3.6, fat: 5, serving: 150, unit: 'g' },
+  { name: 'WillPowders Bone Broth Protein', cal: 547, protein: 63.5, carbs: 11.2, fat: 19.8, serving: 25, unit: 'g' },
+  { name: 'Dark Chocolate (80%)', cal: 580, protein: 12, carbs: 33, fat: 46, serving: 10, unit: 'g' },
+  { name: 'Cachet Almonds & Orange Dark Choc', cal: 532, protein: 6.8, carbs: 43, fat: 35, serving: 8, unit: 'g' },
+  { name: 'Sourdough Seeded Toast (1 slice)', cal: 260, protein: 9, carbs: 43, fat: 5, serving: 50, unit: 'g' },
+  { name: 'Grass-Fed Butter (unsalted)', cal: 717, protein: 0.9, carbs: 0.1, fat: 81, serving: 10, unit: 'g' },
+  { name: 'Streaky Bacon (cooked)', cal: 541, protein: 37, carbs: 1.4, fat: 42, serving: 25, unit: 'g' },
+  { name: 'Maple Syrup', cal: 260, protein: 0, carbs: 67, fat: 0.1, serving: 60, unit: 'g' },
+  { name: 'Green Tea', cal: 1, protein: 0, carbs: 0.3, fat: 0, serving: 250, unit: 'ml' },
+
+  // French
+  { name: 'Galette Complète (ham & cheese)', cal: 190, protein: 10, carbs: 17, fat: 9, serving: 220, unit: 'g' },
+  { name: 'Crêpe au Nutella', cal: 290, protein: 5.5, carbs: 38, fat: 13, serving: 120, unit: 'g' },
+  { name: 'Beignet au Chocolat', cal: 360, protein: 6, carbs: 42, fat: 19, serving: 80, unit: 'g' },
+
+  // WillPowders variants
+  { name: 'WillPowders Dark Protein Shake (12g + water)', cal: 25.2, protein: 2.9, carbs: 0.5, fat: 0.9, serving: 262, unit: 'ml' },
+  { name: 'WillPowders Dark Protein Shake (12g + skimmed milk)', cal: 54.8, protein: 5.7, carbs: 5, fat: 1, serving: 312, unit: 'ml' },
+  { name: 'WillPowders Dark Protein Shake (12g + whole milk)', cal: 86.3, protein: 6.1, carbs: 5.1, fat: 4.3, serving: 262, unit: 'ml' },
+
+  // Dairy
+  { name: 'Skimmed Milk (lait écrémé)', cal: 35, protein: 3.4, carbs: 4.8, fat: 0.2, serving: 300, unit: 'ml' },
+
+  // Biscuits
+  { name: 'McVities Dark Choc Digestive (1 biscuit)', cal: 500, protein: 6.5, carbs: 65.9, fat: 23.5, serving: 17, unit: 'g' },
+
+  // Pasta meals
+  { name: 'White Pasta (dry)', cal: 355, protein: 12.5, carbs: 71, fat: 1.5, serving: 125, unit: 'g' },
+
+  // Eating out
+  { name: 'itsu Katsu Curry Noodles', cal: 117, protein: 3.4, carbs: 14.9, fat: 4.3, serving: 385, unit: 'g' },
+  { name: 'Zizzi Rustica Pepperoni Pizza', cal: 253, protein: 11, carbs: 32.3, fat: 9.3, serving: 390, unit: 'g' },
+  { name: 'Côte Burger & Frites', cal: 274, protein: 13.7, carbs: 19, fat: 15.6, serving: 403, unit: 'g' },
+  { name: 'Côte Steak Frites (5oz)', cal: 156, protein: 9.7, carbs: 9.2, fat: 8.6, serving: 360, unit: 'g' },
+  { name: 'Giggling Squid Prawn Crackers', cal: 508, protein: 7.3, carbs: 118, fat: 1.3, serving: 40, unit: 'g' },
+  { name: 'Giggling Squid Cloudy Lemonade', cal: 40, protein: 0, carbs: 10, fat: 0, serving: 300, unit: 'ml' },
+  { name: 'Giggling Squid Beef Massaman Curry', cal: 234, protein: 5.1, carbs: 12.9, fat: 14.6, serving: 350, unit: 'g' },
+  { name: 'Giggling Squid Jasmine Rice', cal: 131, protein: 2.7, carbs: 28.6, fat: 0.3, serving: 290, unit: 'g' },
+  { name: 'Giggling Squid Chicken Satay Skewers', cal: 278, protein: 16, carbs: 20.7, fat: 14, serving: 150, unit: 'g' },
+  { name: 'Giggling Squid Roti', cal: 352, protein: 4.1, carbs: 46.7, fat: 14.7, serving: 150, unit: 'g' },
+  { name: 'Gail\'s Porridge (plain, oat milk)', cal: 98, protein: 3, carbs: 16, fat: 2.1, serving: 300, unit: 'g' },
+  { name: 'Gail\'s Sourdough Toast (2 slices)', cal: 224, protein: 7.4, carbs: 49, fat: 0.9, serving: 90, unit: 'g' },
+  { name: 'Tortilla Beef Burrito (rice, beans, lettuce, cheese, sour cream)', cal: 163, protein: 8.3, carbs: 17.7, fat: 6.6, serving: 575, unit: 'g' },
+  { name: 'Tortilla Beef Burrito Bowl (rice, beans, lettuce, cheese, sour cream)', cal: 146, protein: 8.3, carbs: 13.7, fat: 6.6, serving: 515, unit: 'g' },
+  { name: 'Santa Maria Margherita Pizza', cal: 240, protein: 10, carbs: 32, fat: 8.4, serving: 300, unit: 'g' },
+
+  // Kings Head, Teddington
+  { name: 'Kings Head Bread, Olives & Oil', cal: 160, protein: 2.5, carbs: 16, fat: 8, serving: 200, unit: 'g' },
+  { name: 'Kings Head Burger & Fries', cal: 230, protein: 9, carbs: 17, fat: 11.6, serving: 500, unit: 'g' },
+  { name: 'Kings Head Sticky Toffee Pudding & Ice Cream', cal: 288, protein: 3, carbs: 34.4, fat: 14.8, serving: 250, unit: 'g' },
+
+  // Snacks & Supplements
+  { name: 'MyProtein Brownie Chocolate Chip', cal: 383, protein: 30.7, carbs: 38.7, fat: 12.9, serving: 75, unit: 'g' },
+  { name: 'M&S Baked Potato with Cheese & Beans', cal: 100, protein: 4.1, carbs: 15, fat: 2.5, serving: 435, unit: 'g' },
+
+  // BA First Class Lounge (estimates)
+  { name: 'BA Lounge Caesar Salad', cal: 143, protein: 4.3, carbs: 6.4, fat: 10, serving: 280, unit: 'g' },
+  { name: 'BA Lounge Burger & Chunky Chips', cal: 220, protein: 8, carbs: 20, fat: 11, serving: 500, unit: 'g' },
+
+  // Tinned / Convenience
+  { name: 'John West Tuna Steak in Spring Water', cal: 97, protein: 23, carbs: 0, fat: 0.4, serving: 60, unit: 'g' },
+
+  // Chocolate
+  { name: 'Green & Blacks Dark Chocolate & Ginger', cal: 512, protein: 6, carbs: 51, fat: 30, serving: 11, unit: 'g' }
 ];
 
 // ============================================================
@@ -817,7 +992,7 @@ function toggleTheme() {
 // NAVIGATION
 // ============================================================
 const screenTitles = {
-  dashboard: '🥗 Dashboard',
+  dashboard: '🧸 Dashboard',
   log: '📝 Food Log',
   weight: '⚖️ Weight',
   plan: '🍽️ Meal Plan',
@@ -935,6 +1110,8 @@ function refreshProfile() {
     `<div class="ring-card prot"><div class="ring-label">Protein</div><div class="ring-value">${m.protein}g</div><div class="ring-sub">${m.protein*4} kcal</div></div>` +
     `<div class="ring-card crbs"><div class="ring-label">Carbs</div><div class="ring-value">${m.carbs}g</div><div class="ring-sub">${m.carbs*4} kcal</div></div>` +
     `<div class="ring-card fats"><div class="ring-label">Fat</div><div class="ring-value">${m.fat}g</div><div class="ring-sub">${m.fat*9} kcal</div></div>`;
+  const appVersionText = document.getElementById('appVersionText');
+  if (appVersionText) appVersionText.textContent = APP_VERSION;
 }
 
 // ============================================================
@@ -1092,6 +1269,75 @@ function getMealTotals(meal) {
   return { p, c, f, cals: Math.round(p * 4 + c * 4 + f * 9) };
 }
 
+function foodServingLabel(food) { return food.serving + food.unit; }
+function foodLogName(food) { return `${food.name} (${foodServingLabel(food)})`; }
+function foodToServingMacros(food) {
+  const factor = (food.serving || 100) / 100;
+  return {
+    cal: Math.round((food.cal || 0) * factor),
+    p: round1((food.protein || 0) * factor),
+    c: round1((food.carbs || 0) * factor),
+    f: round1((food.fat || 0) * factor)
+  };
+}
+function getFoodMatches(query) {
+  const q = (query || '').trim().toLowerCase();
+  const starts = [];
+  const contains = [];
+  FOODS.forEach((food, index) => {
+    const name = food.name.toLowerCase();
+    if (!q || name.indexOf(q) === 0) starts.push(index);
+    else if (name.indexOf(q) !== -1) contains.push(index);
+  });
+  return starts.concat(contains).slice(0, FOOD_SEARCH_LIMIT);
+}
+function hideFoodOptions(mi) {
+  const el = document.getElementById('fsr_' + mi);
+  if (el) el.classList.remove('show');
+}
+function deferHideFoodOptions(mi) {
+  window.setTimeout(() => hideFoodOptions(mi), 150);
+}
+function renderFoodOptions(mi, matches, query) {
+  const resultsEl = document.getElementById('fsr_' + mi);
+  if (!resultsEl) return;
+  if (!matches.length) {
+    resultsEl.innerHTML = `<div class="food-search-empty">No foods found for "${escHtml(query)}".</div>`;
+    resultsEl.classList.add('show');
+    return;
+  }
+  let html = '';
+  matches.forEach(fi => {
+    const food = FOODS[fi];
+    const macros = foodToServingMacros(food);
+    html += `<div class="food-search-item" onclick="selectFood(${mi},${fi})"><div class="food-search-meta"><div class="food-search-name">${escHtml(food.name)}</div><div class="food-search-detail">${foodServingLabel(food)} serving · ${macros.cal} kcal · ${macros.p}P / ${macros.c}C / ${macros.f}F</div></div><button type="button" class="food-search-add-btn" onclick="quickAddFromSearch(event,${mi},${fi})">Add</button></div>`;
+  });
+  resultsEl.innerHTML = html;
+  resultsEl.classList.add('show');
+}
+function filterFoodOptions(mi) {
+  const input = document.getElementById('fs_' + mi);
+  if (!input) return;
+  renderFoodOptions(mi, getFoodMatches(input.value), input.value || '');
+}
+function selectFood(mi, fi) {
+  const food = FOODS[fi];
+  const macros = foodToServingMacros(food);
+  document.getElementById('fn_' + mi).value = foodLogName(food);
+  document.getElementById('fp_' + mi).value = macros.p;
+  document.getElementById('fc_' + mi).value = macros.c;
+  document.getElementById('ff_' + mi).value = macros.f;
+  const search = document.getElementById('fs_' + mi);
+  if (search) search.value = food.name;
+  const hint = document.getElementById('fsh_' + mi);
+  if (hint) hint.textContent = `Selected default serving: ${foodServingLabel(food)} · ${macros.cal} kcal · ${macros.p}P / ${macros.c}C / ${macros.f}F`;
+  hideFoodOptions(mi);
+}
+function quickAddFromSearch(evt, mi, fi) {
+  if (evt) evt.stopPropagation();
+  quickAdd(mi, fi);
+}
+
 function refreshLog() {
   document.getElementById('logDayLabel').textContent = getLogDateLabel(currentLogDate);
 
@@ -1116,7 +1362,7 @@ function refreshLog() {
     html += `<div class="meal-header"><h4>${escHtml(meal.name)}</h4><div style="display:flex;align-items:center;gap:8px;"><span class="meal-cals">${mt.cals} kcal</span><button class="remove-btn" onclick="removeMeal(${mi})">✕</button></div></div>`;
     html += `<div class="meal-items">`;
     if (meal.items.length === 0) {
-      html += '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">No foods yet — add below or use quick-add</div>';
+      html += '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">No foods yet — search the food database below or add manually.</div>';
     }
     meal.items.forEach((item, ii) => {
       const iCals = Math.round(item.p * 4 + item.c * 4 + item.f * 9);
@@ -1133,11 +1379,8 @@ function refreshLog() {
     html += `<input class="fm" type="number" placeholder="F" id="ff_${mi}" step="0.1">`;
     html += `<button class="add-food-btn" onclick="addFood(${mi})">+</button>`;
     html += `</div>`;
-    // Quick foods
-    html += `<div class="quick-foods-wrap"><span style="font-size:0.68rem;color:var(--text-muted);margin-right:4px;">Quick:</span>`;
-    QUICK_FOODS.forEach((qf, qi) => {
-      html += `<button class="qf-btn" onclick="quickAdd(${mi},${qi})" title="P:${qf.p} C:${qf.c} F:${qf.f}">${qf.name.split('(')[0].trim()}</button>`;
-    });
+    // Food database search
+    html += `<div class="quick-foods-wrap"><div class="food-search-label">Food database</div><div class="food-search-box"><input class="food-search-input" type="text" placeholder="Search 100+ foods or tap to browse…" id="fs_${mi}" autocomplete="off" oninput="filterFoodOptions(${mi})" onfocus="filterFoodOptions(${mi})" onblur="deferHideFoodOptions(${mi})"><div class="food-search-results" id="fsr_${mi}"></div></div><div class="food-search-hint" id="fsh_${mi}">Search the full food database. Tap a result to fill the manual fields, or use Add for a one-tap serving.</div>`;
     html += `</div></div>`;
   });
   container.innerHTML = html;
@@ -1172,8 +1415,10 @@ async function addFood(mi) {
 }
 
 async function quickAdd(mi, qi) {
-  const qf = QUICK_FOODS[qi];
-  logMeals[mi].items.push({ ...qf });
+  const food = FOODS[qi];
+  if (!food) return;
+  const macros = foodToServingMacros(food);
+  logMeals[mi].items.push({ name: foodLogName(food), p: macros.p, c: macros.c, f: macros.f });
   await saveLogDay();
   refreshLog();
 }
@@ -1795,6 +2040,71 @@ function rebuildCharts() {
   }
 }
 
+function setUpdateStatus(message, type) {
+  const status = document.getElementById('update-status');
+  if (!status) return;
+  status.textContent = message;
+  status.className = 'app-update-status' + (type ? ' ' + type : '');
+}
+
+async function forceAppRefresh(){
+  if(!confirm('This will unregister the service worker, clear all caches, and reload. Your saved data is safe.'))return;
+  try{
+    if('serviceWorker' in navigator){var regs=await navigator.serviceWorker.getRegistrations();for(var i=0;i<regs.length;i++){await regs[i].unregister()}}
+    var keys=await caches.keys();await Promise.all(keys.map(function(k){return caches.delete(k)}));
+  }catch(e){console.error('Force refresh error:',e)}
+  window.location.reload(true);
+}
+
+async function checkForAppUpdate(){
+  var btn=document.getElementById('update-btn');
+  if(btn)btn.disabled=true;
+  setUpdateStatus('Checking...', 'info');
+  try{
+    if('serviceWorker' in navigator){
+      var reg=await navigator.serviceWorker.getRegistration();
+      if(reg){
+        await reg.update();
+        var waiting=reg.waiting||reg.installing;
+        if(waiting){
+          setUpdateStatus('Update found! Applying...', 'info');
+          var reloaded=false;
+          var reload=function(){if(reloaded)return;reloaded=true;window.location.reload()};
+          var onControllerChange=function(){navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);reload()};
+          navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+          waiting.addEventListener('statechange',function(){
+            if(waiting.state==='installed'){waiting.postMessage({type:'SKIP_WAITING'})}
+            if(waiting.state==='activated'){reload()}
+          });
+          if(waiting.state==='installed'){waiting.postMessage({type:'SKIP_WAITING'})}
+          var keys=await caches.keys();
+          await Promise.all(keys.map(function(k){return caches.delete(k)}));
+          setTimeout(reload,2000);
+          return;
+        }
+      }
+      var keys2=await caches.keys();
+      if(keys2.length>0){
+        await Promise.all(keys2.map(function(k){return caches.delete(k)}));
+        setUpdateStatus('Cache cleared. Reloading...', 'info');
+        setTimeout(function(){window.location.reload()},800);
+        return;
+      }
+    }
+    setUpdateStatus('✓ You are on the latest version.', 'success');
+  }catch(e){
+    setUpdateStatus('Update check failed: ' + e.message, 'error');
+  }finally{
+    if(btn)btn.disabled=false
+  }
+}
+
+document.addEventListener('click', function(e) {
+  if (e.target.closest && e.target.closest('.quick-foods-wrap')) return;
+  var openLists = document.querySelectorAll('.food-search-results.show');
+  for (var i = 0; i < openLists.length; i++) openLists[i].classList.remove('show');
+});
+
 // ============================================================
 // INIT
 // ============================================================
@@ -1823,7 +2133,7 @@ init();
 
 // Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).catch(() => {});
 }
 </script>
 </body>
