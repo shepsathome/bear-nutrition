@@ -1,7 +1,7 @@
-const CACHE_NAME = 'nutrition-2026.06.13';
+const CACHE_NAME = 'nutrition-2026.06.19';
 const ASSETS = [
   './',
-  './Biolayne Nutrition App.html',
+  './index.html',
   './manifest.json',
   'https://cdn.jsdelivr.net/npm/chart.js@4'
 ];
