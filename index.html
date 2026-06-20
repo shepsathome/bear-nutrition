@@ -159,6 +159,31 @@ body {
 .macro-tag.p { background: rgba(225,112,85,0.12); color: var(--protein); }
 .macro-tag.c { background: rgba(0,184,148,0.12); color: var(--carbs); }
 .macro-tag.f { background: rgba(204,154,6,0.15); color: var(--fat); }
+.food-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 300; display: flex; align-items: flex-end; justify-content: center; }
+.food-modal { background: var(--bg-card); border-radius: 24px 24px 0 0; padding: 1.2rem; padding-bottom: calc(1.2rem + env(safe-area-inset-bottom)); width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto; animation: slideUpModal .28s ease; box-shadow: 0 -4px 24px rgba(0,0,0,0.15); }
+@keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.food-modal h3 { font-size: 1.05rem; color: var(--primary); margin-bottom: .7rem; font-weight: 700; }
+.food-modal .food-search-input { width: 100%; margin-bottom: .7rem; font-size: 1rem; padding: .75rem .9rem; border: 1px solid var(--input-border); border-radius: 12px; background: var(--input-bg); color: var(--text); }
+.food-modal .food-search-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
+.food-modal .food-results { max-height: 40vh; overflow-y: auto; }
+.food-modal .food-result-item { display: flex; justify-content: space-between; align-items: center; padding: .7rem .4rem; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 10px; min-height: 52px; }
+.food-modal .food-result-item:active { background: rgba(108,99,255,0.08); }
+.food-modal .fr-name { font-size: .92rem; font-weight: 600; color: var(--text); }
+.food-modal .fr-macros { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
+.food-modal .fr-serving { font-size: .76rem; color: var(--primary-light); font-weight: 600; }
+.food-serving-edit { background: rgba(108,99,255,0.05); border: 1px solid rgba(108,99,255,0.15); border-radius: 16px; padding: .9rem; margin-top: .7rem; }
+.food-serving-edit .fse-name { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: .5rem; }
+.food-serving-edit .fse-row { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+.food-serving-edit .fse-row label { font-size: .8rem; color: var(--text-muted); min-width: 55px; }
+.food-serving-edit .fse-row input { width: 90px; text-align: center; font-weight: 700; font-size: 1.05rem; padding: .6rem .7rem; border: 1px solid var(--input-border); border-radius: 10px; background: var(--input-bg); color: var(--text); }
+.food-serving-edit .fse-row input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
+.food-serving-edit .fse-unit { font-size: .82rem; color: var(--text-muted); }
+.food-serving-edit .fse-macros { font-size: .85rem; color: var(--text); margin: .5rem 0; }
+.food-serving-edit .fse-macros strong { color: var(--primary); }
+.food-modal .modal-add-btn { width: 100%; padding: .8rem; border: none; border-radius: 12px; background: var(--primary); color: #fff; font-size: .95rem; font-weight: 700; cursor: pointer; margin-top: .5rem; }
+.food-modal .modal-add-btn:active { background: var(--primary-dark); }
+.food-modal .modal-cancel-btn { width: 100%; padding: .7rem; border: none; border-radius: 10px; background: transparent; color: var(--text-muted); font-size: .85rem; cursor: pointer; margin-top: .4rem; }
+.food-modal .modal-cancel-btn:active { background: var(--border); }
 .remove-btn { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.1rem; padding: 2px 6px; border-radius: 6px; }
 .remove-btn:active { background: rgba(225,112,85,0.12); }
 .add-food-row { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; align-items: center; }
@@ -672,7 +697,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 
     <div class="card">
       <h3>App Info</h3>
-      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.13</strong></div>
+      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.20</strong></div>
       <div class="app-info-actions">
         <button class="btn btn-sm btn-outline" id="update-btn" onclick="checkForAppUpdate()">🔄 Check for Updates</button>
         <button class="btn btn-sm btn-outline" onclick="forceAppRefresh()">🔥 Force Refresh</button>
@@ -703,7 +728,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 // ============================================================
 const DB_NAME = 'NutritionApp';
 const DB_VERSION = 2;
-const APP_VERSION = '2026.06.13';
+const APP_VERSION = '2026.06.20';
 const FOOD_SEARCH_LIMIT = 8;
 let db = null;
 
@@ -1328,51 +1353,99 @@ function getFoodMatches(query) {
   });
   return starts.concat(contains).slice(0, FOOD_SEARCH_LIMIT);
 }
-function hideFoodOptions(mi) {
-  const el = document.getElementById('fsr_' + mi);
-  if (el) el.classList.remove('show');
+let _activeMealIndex = -1;
+function openFoodModal(mi) {
+  _activeMealIndex = mi;
+  const mealName = logMeals[mi] ? logMeals[mi].name : 'Meal';
+  const overlay = document.createElement('div');
+  overlay.className = 'food-modal-overlay';
+  overlay.id = 'food-modal';
+  overlay.onclick = function(e) { if (e.target === overlay) closeFoodModal(); };
+  overlay.innerHTML = '<div class="food-modal">' +
+    '<h3>Add to ' + escHtml(mealName) + '</h3>' +
+    '<input class="food-search-input" id="food-search" type="text" placeholder="Search foods..." oninput="searchFoodsModal(this.value)" autofocus>' +
+    '<div id="food-serving-area"></div>' +
+    '<div id="food-results" class="food-results"></div>' +
+    '<button class="modal-cancel-btn" onclick="closeFoodModal()">Cancel</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  setTimeout(function() { var inp = document.getElementById('food-search'); if (inp) inp.focus(); }, 100);
+  searchFoodsModal('');
 }
-function deferHideFoodOptions(mi) {
-  window.setTimeout(() => hideFoodOptions(mi), 150);
+function closeFoodModal() {
+  const m = document.getElementById('food-modal');
+  if (m) m.remove();
+  window._selectedFood = null;
+  _activeMealIndex = -1;
 }
-function renderFoodOptions(mi, matches, query) {
-  const resultsEl = document.getElementById('fsr_' + mi);
-  if (!resultsEl) return;
-  if (!matches.length) {
-    resultsEl.innerHTML = `<div class="food-search-empty">No foods found for "${escHtml(query)}".</div>`;
-    resultsEl.classList.add('show');
-    return;
-  }
-  let html = '';
-  matches.forEach(fi => {
-    const food = FOODS[fi];
-    const macros = foodToServingMacros(food);
-    html += `<div class="food-search-item" onclick="selectFood(${mi},${fi})"><div class="food-search-meta"><div class="food-search-name">${escHtml(food.name)}</div><div class="food-search-detail">${foodServingLabel(food)} serving · ${macros.cal} kcal · ${macros.p}P / ${macros.c}C / ${macros.f}F</div></div><button type="button" class="food-search-add-btn" onclick="quickAddFromSearch(event,${mi},${fi})">Add</button></div>`;
+function searchFoodsModal(query) {
+  const results = document.getElementById('food-results');
+  if (!results) return;
+  const q = (query || '').toLowerCase().trim();
+  const matches = [];
+  FOODS.forEach((food, i) => {
+    if (!q || food.name.toLowerCase().indexOf(q) >= 0) matches.push({ food, index: i });
   });
-  resultsEl.innerHTML = html;
-  resultsEl.classList.add('show');
+  let h = '';
+  const shown = Math.min(matches.length, 25);
+  for (let j = 0; j < shown; j++) {
+    const f = matches[j].food;
+    h += '<div class="food-result-item" onclick="selectFoodModal(' + matches[j].index + ')">' +
+      '<div><div class="fr-name">' + escHtml(f.name) + '</div>' +
+      '<div class="fr-macros">' + f.cal + ' kcal · ' + f.protein + 'P · ' + f.carbs + 'C · ' + f.fat + 'F (per 100' + f.unit + ')</div></div>' +
+      '<div class="fr-serving">' + f.serving + f.unit + '</div></div>';
+  }
+  if (!shown) {
+    h = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:.85rem">No foods found.</div>';
+  }
+  results.innerHTML = h;
+  window._selectedFood = null;
+  const area = document.getElementById('food-serving-area');
+  if (area) area.innerHTML = '';
 }
-function filterFoodOptions(mi) {
-  const input = document.getElementById('fs_' + mi);
-  if (!input) return;
-  renderFoodOptions(mi, getFoodMatches(input.value), input.value || '');
+function selectFoodModal(index) {
+  const food = FOODS[index];
+  if (!food) return;
+  window._selectedFood = food;
+  const area = document.getElementById('food-serving-area');
+  if (!area) return;
+  const s = food.serving || 100;
+  const step = (food.unit === 'g' || food.unit === 'ml') ? 5 : 1;
+  area.innerHTML = '<div class="food-serving-edit">' +
+    '<div class="fse-name">' + escHtml(food.name) + '</div>' +
+    '<div class="fse-row"><label>Amount</label><input id="fse-amount" type="number" value="' + s + '" min="1" step="' + step + '" oninput="updateServingCalcModal()"> <span class="fse-unit">' + food.unit.trim() + '</span></div>' +
+    '<div class="fse-macros" id="fse-macros"></div>' +
+    '<button class="modal-add-btn" onclick="confirmAddFoodModal()">✓ Add</button>' +
+    '</div>';
+  updateServingCalcModal();
+  const results = document.getElementById('food-results');
+  if (results) results.innerHTML = '';
 }
-function selectFood(mi, fi) {
-  const food = FOODS[fi];
-  const macros = foodToServingMacros(food);
-  document.getElementById('fn_' + mi).value = foodLogName(food);
-  document.getElementById('fp_' + mi).value = macros.p;
-  document.getElementById('fc_' + mi).value = macros.c;
-  document.getElementById('ff_' + mi).value = macros.f;
-  const search = document.getElementById('fs_' + mi);
-  if (search) search.value = food.name;
-  const hint = document.getElementById('fsh_' + mi);
-  if (hint) hint.textContent = `Selected default serving: ${foodServingLabel(food)} · ${macros.cal} kcal · ${macros.p}P / ${macros.c}C / ${macros.f}F`;
-  hideFoodOptions(mi);
+function updateServingCalcModal() {
+  const food = window._selectedFood;
+  if (!food) return;
+  const amountEl = document.getElementById('fse-amount');
+  const amt = parseFloat(amountEl ? amountEl.value : '') || food.serving;
+  const factor = amt / 100;
+  const el = document.getElementById('fse-macros');
+  if (el) el.innerHTML = '<strong>' + Math.round(food.cal * factor) + '</strong> kcal · <strong>' + round1(food.protein * factor) + '</strong>g P · <strong>' + round1(food.carbs * factor) + '</strong>g C · <strong>' + round1(food.fat * factor) + '</strong>g F';
 }
-function quickAddFromSearch(evt, mi, fi) {
-  if (evt) evt.stopPropagation();
-  quickAdd(mi, fi);
+async function confirmAddFoodModal() {
+  const food = window._selectedFood;
+  if (!food || _activeMealIndex < 0) return;
+  const amountEl = document.getElementById('fse-amount');
+  const amt = parseFloat(amountEl ? amountEl.value : '') || food.serving;
+  const factor = amt / 100;
+  const item = {
+    name: food.name + ' (' + amt + food.unit + ')',
+    p: round1(food.protein * factor),
+    c: round1(food.carbs * factor),
+    f: round1(food.fat * factor)
+  };
+  logMeals[_activeMealIndex].items.push(item);
+  await saveLogDay();
+  closeFoodModal();
+  refreshLog();
 }
 
 function refreshLog() {
@@ -1399,7 +1472,7 @@ function refreshLog() {
     html += `<div class="meal-header"><h4>${escHtml(meal.name)}</h4><div style="display:flex;align-items:center;gap:8px;"><span class="meal-cals">${mt.cals} kcal</span><button class="remove-btn" onclick="removeMeal(${mi})">✕</button></div></div>`;
     html += `<div class="meal-items">`;
     if (meal.items.length === 0) {
-      html += '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">No foods yet — search the food database below or add manually.</div>';
+      html += '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">No foods yet — tap + Add Food to search and log one.</div>';
     }
     meal.items.forEach((item, ii) => {
       const iCals = Math.round(item.p * 4 + item.c * 4 + item.f * 9);
@@ -1408,17 +1481,8 @@ function refreshLog() {
       html += `<button class="remove-btn" onclick="removeItem(${mi},${ii})">✕</button></div></div>`;
     });
     html += `</div>`;
-    // Add food form
-    html += `<div class="add-food-row">`;
-    html += `<input class="fn" type="text" placeholder="Food name" id="fn_${mi}">`;
-    html += `<input class="fm" type="number" placeholder="P" id="fp_${mi}" step="0.1">`;
-    html += `<input class="fm" type="number" placeholder="C" id="fc_${mi}" step="0.1">`;
-    html += `<input class="fm" type="number" placeholder="F" id="ff_${mi}" step="0.1">`;
-    html += `<button class="add-food-btn" onclick="addFood(${mi})">+</button>`;
+    html += `<button class="add-food-btn" style="width:100%;padding:10px;border-radius:10px;margin-top:8px;" onclick="openFoodModal(${mi})">+ Add Food</button>`;
     html += `</div>`;
-    // Food database search
-    html += `<div class="quick-foods-wrap"><div class="food-search-label">Food database</div><div class="food-search-box"><input class="food-search-input" type="text" placeholder="Search 100+ foods or tap to browse…" id="fs_${mi}" autocomplete="off" oninput="filterFoodOptions(${mi})" onfocus="filterFoodOptions(${mi})" onblur="deferHideFoodOptions(${mi})"><div class="food-search-results" id="fsr_${mi}"></div></div><div class="food-search-hint" id="fsh_${mi}">Search the full food database. Tap a result to fill the manual fields, or use Add for a one-tap serving.</div>`;
-    html += `</div></div>`;
   });
   container.innerHTML = html;
   renderWeeklyChart();
@@ -1436,26 +1500,6 @@ async function addMeal() {
 async function removeMeal(mi) {
   if (!confirm('Remove "' + logMeals[mi].name + '"?')) return;
   logMeals.splice(mi, 1);
-  await saveLogDay();
-  refreshLog();
-}
-
-async function addFood(mi) {
-  const name = document.getElementById('fn_' + mi).value.trim();
-  const p = parseFloat(document.getElementById('fp_' + mi).value) || 0;
-  const c = parseFloat(document.getElementById('fc_' + mi).value) || 0;
-  const f = parseFloat(document.getElementById('ff_' + mi).value) || 0;
-  if (!name) { alert('Enter a food name'); return; }
-  logMeals[mi].items.push({ name, p, c, f });
-  await saveLogDay();
-  refreshLog();
-}
-
-async function quickAdd(mi, qi) {
-  const food = FOODS[qi];
-  if (!food) return;
-  const macros = foodToServingMacros(food);
-  logMeals[mi].items.push({ name: foodLogName(food), p: macros.p, c: macros.c, f: macros.f });
   await saveLogDay();
   refreshLog();
 }
@@ -2135,12 +2179,6 @@ async function checkForAppUpdate(){
     if(btn)btn.disabled=false
   }
 }
-
-document.addEventListener('click', function(e) {
-  if (e.target.closest && e.target.closest('.quick-foods-wrap')) return;
-  var openLists = document.querySelectorAll('.food-search-results.show');
-  for (var i = 0; i < openLists.length; i++) openLists[i].classList.remove('show');
-});
 
 // ============================================================
 // INIT
