@@ -159,6 +159,35 @@ body {
 .macro-tag.p { background: rgba(225,112,85,0.12); color: var(--protein); }
 .macro-tag.c { background: rgba(0,184,148,0.12); color: var(--carbs); }
 .macro-tag.f { background: rgba(204,154,6,0.15); color: var(--fat); }
+.nutrition-totals { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 1rem; margin-bottom: 12px; box-shadow: 0 2px 8px var(--shadow); }
+.nutrition-totals h3 { font-size: 0.9rem; color: var(--primary); margin-bottom: 0.6rem; font-weight: 700; }
+.nt-row { margin-bottom: 0.55rem; }
+.nt-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.18rem; gap: 0.4rem; flex-wrap: wrap; }
+.nt-label .nt-val { font-weight: 700; color: var(--text); }
+.nt-label .nt-target { color: var(--text-muted); font-size: 0.8rem; }
+.macro-bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.macro-bar .macro-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+.macro-fill.cal { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+.macro-fill.pro { background: var(--protein); }
+.macro-fill.carb { background: var(--carbs); }
+.macro-fill.fat { background: var(--fat); }
+.nt-remaining { font-size: 0.82rem; margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px solid var(--border); color: var(--text); }
+.nt-remaining strong { color: var(--primary); }
+.meal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 0.9rem; margin-bottom: 0.65rem; box-shadow: 0 2px 8px var(--shadow); }
+.meal-card h3 { display: flex; align-items: baseline; gap: 0.4rem; margin-bottom: 0.4rem; font-size: 0.95rem; }
+.meal-card h3 .meal-macros { font-weight: 400; font-size: 0.72rem; color: var(--text-muted); }
+.food-item { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.15rem; border-bottom: 1px solid var(--border); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s; }
+.food-item:active { background: rgba(108,99,255,0.05); }
+.food-item:last-of-type { border-bottom: none; }
+.food-item .fi-name { font-size: 0.86rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.food-item .fi-kcal { font-size: 0.82rem; font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 0.5rem; }
+.food-item .fi-chev { font-size: 0.6rem; color: var(--text-muted); margin-left: 0.35rem; transition: transform 0.2s; }
+.food-item.expanded .fi-chev { transform: rotate(90deg); }
+.food-details { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+.food-item.expanded + .food-details { max-height: 80px; }
+.food-details-inner { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0.15rem 0.45rem; font-size: 0.78rem; color: var(--text-muted); }
+.food-details-inner .fd-macros span { margin-right: 0.6rem; }
+.food-details-inner .fd-delete { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.82rem; padding: 0.2rem 0.4rem; }
 .food-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 300; display: flex; align-items: flex-end; justify-content: center; }
 .food-modal { background: var(--bg-card); border-radius: 24px 24px 0 0; padding: 1.2rem; padding-bottom: calc(1.2rem + env(safe-area-inset-bottom)); width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto; animation: slideUpModal .28s ease; box-shadow: 0 -4px 24px rgba(0,0,0,0.15); }
 @keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -472,12 +501,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
       <div class="step-summary"><span id="logStepLabel">0 of 7,000 steps</span><span></span></div>
     </div>
 
-    <div class="progress-rings" id="logRings">
-      <div class="ring-card cals"><div class="ring-label">Cal</div><div class="ring-value" id="lCals">0</div><div class="ring-sub">of <span id="lCalsG">—</span></div><div class="ring-bar"><div class="ring-bar-fill" id="lCalsB" style="width:0%"></div></div></div>
-      <div class="ring-card prot"><div class="ring-label">Prot</div><div class="ring-value" id="lProt">0g</div><div class="ring-sub">of <span id="lProtG">—</span></div><div class="ring-bar"><div class="ring-bar-fill" id="lProtB" style="width:0%"></div></div></div>
-      <div class="ring-card crbs"><div class="ring-label">Carbs</div><div class="ring-value" id="lCarbs">0g</div><div class="ring-sub">of <span id="lCarbsG">—</span></div><div class="ring-bar"><div class="ring-bar-fill" id="lCarbsB" style="width:0%"></div></div></div>
-      <div class="ring-card fats"><div class="ring-label">Fat</div><div class="ring-value" id="lFat">0g</div><div class="ring-sub">of <span id="lFatG">—</span></div><div class="ring-bar"><div class="ring-bar-fill" id="lFatB" style="width:0%"></div></div></div>
-    </div>
+    <div id="logRings"></div>
 
     <div id="logMealsContainer"></div>
     <button class="add-meal-btn" onclick="addMeal()">➕ Add a Meal</button>
@@ -697,7 +721,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 
     <div class="card">
       <h3>App Info</h3>
-      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.20</strong></div>
+      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.22</strong></div>
       <div class="app-info-actions">
         <button class="btn btn-sm btn-outline" id="update-btn" onclick="checkForAppUpdate()">🔄 Check for Updates</button>
         <button class="btn btn-sm btn-outline" onclick="forceAppRefresh()">🔥 Force Refresh</button>
@@ -728,7 +752,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 // ============================================================
 const DB_NAME = 'NutritionApp';
 const DB_VERSION = 2;
-const APP_VERSION = '2026.06.20';
+const APP_VERSION = '2026.06.22';
 const FOOD_SEARCH_LIMIT = 8;
 let db = null;
 
@@ -1466,8 +1490,32 @@ function refreshLog() {
   const t = getLogTotals();
   const m = profile ? profile.macros : null;
 
-  // Update rings
-  updateRingSet('l', t, m);
+  // Render nutrition totals as progress bars
+  const ringsEl = document.getElementById('logRings');
+  if (ringsEl && m) {
+    const macros = [
+      { label: 'Calories', val: t.cals, target: m.cals, unit: 'kcal', cls: 'cal' },
+      { label: 'Protein', val: Math.round(t.p), target: m.protein, unit: 'g', cls: 'pro' },
+      { label: 'Carbs', val: Math.round(t.c), target: m.carbs, unit: 'g', cls: 'carb' },
+      { label: 'Fat', val: Math.round(t.f), target: m.fat, unit: 'g', cls: 'fat' }
+    ];
+    let rh = `<div class="nutrition-totals"><h3>${getLogDateLabel(currentLogDate)}'s Nutrition</h3>`;
+    macros.forEach(mc => {
+      const pct = mc.target > 0 ? Math.round(mc.val / mc.target * 100) : 0;
+      const barPct = Math.min(100, pct);
+      const over = pct > 100;
+      rh += `<div class="nt-row"><div class="nt-label"><span>${mc.label}</span><span class="nt-val">${mc.val} ${mc.unit}</span><span class="nt-target"${over ? ' style="color:var(--danger);font-weight:700"' : ''}>/ ${mc.target} ${mc.unit} (${pct}%)</span></div><div class="macro-bar"><div class="macro-fill ${mc.cls}" style="width:${barPct}%${over ? ';background:var(--danger)' : ''}"></div></div></div>`;
+    });
+    const remCals = m.cals - t.cals;
+    const remP = Math.round(m.protein - t.p);
+    const remC = Math.round(m.carbs - t.c);
+    const remF = Math.round(m.fat - t.f);
+    rh += `<div class="nt-remaining"><strong>🍽️ Remaining:</strong> ${remCals} kcal · <span style="color:var(--protein)">${remP}g P</span> · <span style="color:var(--carbs)">${remC}g C</span> · <span style="color:var(--fat)">${remF}g F</span></div>`;
+    rh += `</div>`;
+    ringsEl.innerHTML = rh;
+  } else if (ringsEl && !m) {
+    ringsEl.innerHTML = '<div class="nutrition-totals"><h3>Set up your profile to see targets</h3></div>';
+  }
 
   // Render meals
   const container = document.getElementById('logMealsContainer');
@@ -1480,19 +1528,16 @@ function refreshLog() {
   let html = '';
   logMeals.forEach((meal, mi) => {
     const mt = getMealTotals(meal);
-    html += `<div class="meal-entry">`;
-    html += `<div class="meal-header"><h4>${escHtml(meal.name)}</h4><div style="display:flex;align-items:center;gap:8px;"><span class="meal-cals">${mt.cals} kcal</span><button class="remove-btn" onclick="removeMeal(${mi})">✕</button></div></div>`;
-    html += `<div class="meal-items">`;
+    html += `<div class="meal-card">`;
+    html += `<h3>${escHtml(meal.name)} <span class="meal-macros">${mt.cals} kcal · P${Math.round(mt.p)} C${Math.round(mt.c)} F${Math.round(mt.f)}</span><button class="remove-btn" style="margin-left:auto;" onclick="removeMeal(${mi})">✕</button></h3>`;
     if (meal.items.length === 0) {
-      html += '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">No foods yet — tap + Add Food to search and log one.</div>';
+      html += '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">No foods yet — tap + Add Food below.</div>';
     }
     meal.items.forEach((item, ii) => {
       const iCals = Math.round(item.p * 4 + item.c * 4 + item.f * 9);
-      html += `<div class="meal-item"><span>${escHtml(item.name)} <span class="text-muted text-sm">(${iCals})</span></span>`;
-      html += `<div class="meal-item-macros"><span class="macro-tag p">${round1(item.p)}P</span><span class="macro-tag c">${round1(item.c)}C</span><span class="macro-tag f">${round1(item.f)}F</span>`;
-      html += `<button class="remove-btn" onclick="removeItem(${mi},${ii})">✕</button></div></div>`;
+      html += `<div class="food-item" onclick="this.classList.toggle('expanded')"><span class="fi-name">${escHtml(item.name)}</span><span class="fi-kcal">${iCals}</span><span class="fi-chev">›</span></div>`;
+      html += `<div class="food-details"><div class="food-details-inner"><div class="fd-macros"><span>P: ${round1(item.p)}g</span><span>C: ${round1(item.c)}g</span><span>F: ${round1(item.f)}g</span></div><button class="fd-delete" onclick="event.stopPropagation();removeItem(${mi},${ii})">✕ Remove</button></div></div>`;
     });
-    html += `</div>`;
     html += `<button class="add-food-btn" style="width:100%;padding:10px;border-radius:10px;margin-top:8px;" onclick="openFoodModal(${mi})">+ Add Food</button>`;
     html += `</div>`;
   });
