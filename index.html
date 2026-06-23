@@ -1825,7 +1825,7 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
   const lossGoal = profile && (profile.goal === 'lose' || profile.goal === 'lose-slow');
   const deficit = profile && profile.macros ? Math.max(0, (profile.macros.tdee || 0) - (profile.macros.cals || 0)) : 0;
 
-  if (!lossGoal || weights.length < 7 || deficit <= 0) {
+  if (!lossGoal || weights.length < 1 || deficit <= 0) {
     card.style.display = 'none';
     content.innerHTML = '';
     return null;
@@ -1893,7 +1893,7 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
     <p style="margin:0 0 8px 0;">Based on your -${Math.round(deficit)} kcal/day deficit:</p>
     <div style="display:grid; gap:6px; color:var(--text-secondary);">
       <div>• Expected rate: ~${toDisplay(expectedRateKg)} ${unitLabel}/week</div>
-      <div>• Current weight: ${toDisplay(currentAvgKg)} ${unitLabel} (7-day avg)</div>
+      <div>• Current weight: ${toDisplay(currentAvgKg)} ${unitLabel}${weights.length >= 7 ? ' (7-day avg)' : ''}</div>
       <div>${targetLine}</div>
       ${actualRateKg !== null ? `<div>• Actual rate (last 2 weeks): ${round1(actualRateKg > 0 ? toDisplay(actualRateKg) : -toDisplay(Math.abs(actualRateKg)))} ${unitLabel}/week</div>` : ''}
     </div>
