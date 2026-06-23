@@ -1766,9 +1766,9 @@ function renderWeightChart(data, toDisplay, unitLabel, projection = null) {
   const projectedValues = projection
     ? (() => {
         const series = Array(extendedLabels.length).fill(null);
-        series[labels.length - 1] = toDisplay(data[data.length - 1].weight);
+        series[labels.length - 1] = toDisplay(maKg[maKg.length - 1]);
         projection.futureLabels.forEach((_, i) => {
-          series[labels.length + i] = toDisplay(data[data.length - 1].weight - (projection.projectionRateKg * (i + 1)));
+          series[labels.length + i] = toDisplay(maKg[maKg.length - 1] - (projection.projectionRateKg * (i + 1)));
         });
         return series;
       })()
