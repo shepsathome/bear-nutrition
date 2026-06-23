@@ -1766,9 +1766,9 @@ function renderWeightChart(data, toDisplay, unitLabel, projection = null) {
   const projectedValues = projection
     ? (() => {
         const series = Array(extendedLabels.length).fill(null);
-        series[labels.length - 1] = toDisplay(maKg[maKg.length - 1]);
+        series[labels.length - 1] = toDisplay(data[data.length - 1].weight);
         projection.futureLabels.forEach((_, i) => {
-          series[labels.length + i] = toDisplay(maKg[maKg.length - 1] - (projection.projectionRateKg * (i + 1)));
+          series[labels.length + i] = toDisplay(data[data.length - 1].weight - (projection.projectionRateKg * (i + 1)));
         });
         return series;
       })()
@@ -1841,6 +1841,7 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
   const expectedRateKg = deficit * 7 / 7700;
   const currentAvgKg = maKg[maKg.length - 1];
   const lastEntry = weights[weights.length - 1];
+  const lastWeightKg = lastEntry.weight;
   const lastDate = new Date(lastEntry.date + 'T12:00:00');
 
   let actualRateKg = null;
@@ -1858,11 +1859,11 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
   const projectionRateKg = actualRateKg !== null && actualRateKg > 0 ? actualRateKg : expectedRateKg;
 
   const profileWeightKg = profile.wUnit === 'lbs' ? profile.weight / 2.20462 : profile.weight;
-  const targetWeightKg = profileWeightKg < currentAvgKg - 0.1 ? profileWeightKg : null;
+  const targetWeightKg = profileWeightKg < lastWeightKg - 0.1 ? profileWeightKg : null;
 
   let targetDate = null;
   if (targetWeightKg !== null && projectionRateKg > 0) {
-    const weeksToTarget = (currentAvgKg - targetWeightKg) / projectionRateKg;
+    const weeksToTarget = (lastWeightKg - targetWeightKg) / projectionRateKg;
     if (weeksToTarget > 0) {
       targetDate = new Date(lastDate);
       targetDate.setDate(targetDate.getDate() + Math.round(weeksToTarget * 7));
@@ -1876,7 +1877,7 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
     const futureDate = new Date(lastDate);
     futureDate.setDate(futureDate.getDate() + week * 7);
     futureLabels.push(futureDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
-    projectedKg.push(round1(currentAvgKg - (projectionRateKg * week)));
+    projectedKg.push(round1(lastWeightKg - (projectionRateKg * week)));
   }
 
   const targetLine = targetDate && targetWeightKg !== null
@@ -1890,11 +1891,13 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
       : `You're trending faster than the calorie model right now — great work, keep it sustainable. 🚀`;
   }
 
+  const lastDateLabel = lastDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   content.innerHTML = `
     <p style="margin:0 0 8px 0;">Based on your -${Math.round(deficit)} kcal/day deficit:</p>
     <div style="display:grid; gap:6px; color:var(--text-secondary);">
       <div>• Expected rate: ~${toDisplay(expectedRateKg)} ${unitLabel}/week</div>
-      <div>• Current weight: ${toDisplay(currentAvgKg)} ${unitLabel}${weights.length >= 7 ? ' (7-day avg)' : ''}</div>
+      <div>• Latest weigh-in: ${toDisplay(lastWeightKg)} ${unitLabel} (${lastDateLabel})</div>
+      ${weights.length >= 7 ? `<div>• 7-day average: ${toDisplay(currentAvgKg)} ${unitLabel}</div>` : ''}
       <div>${targetLine}</div>
       ${actualRateKg !== null ? `<div>• Actual rate (last 2 weeks): ${round1(actualRateKg > 0 ? toDisplay(actualRateKg) : -toDisplay(Math.abs(actualRateKg)))} ${unitLabel}/week</div>` : ''}
     </div>
@@ -1902,7 +1905,7 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
   `;
   card.style.display = 'block';
 
-  return { currentAvgKg, futureLabels, projectedKg, projectionRateKg, expectedRateKg, actualRateKg, targetWeightKg, targetDate };
+  return { currentAvgKg: lastWeightKg, futureLabels, projectedKg, projectionRateKg, expectedRateKg, actualRateKg, targetWeightKg, targetDate };
 }
 
 // Dashboard mini weight chart
