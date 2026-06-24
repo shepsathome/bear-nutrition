@@ -410,6 +410,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
       <label>Goal</label>
       <select id="obGoal">
         <option value="maintain">Maintain Weight</option>
+        <option value="recomp">Recomp (Maintain + Build Muscle)</option>
         <option value="lose-slow">Lose (Slow — 0.25 kg/wk)</option>
         <option value="lose">Lose (Moderate — 0.5 kg/wk)</option>
         <option value="gain-slow">Gain (Slow — 0.25 kg/wk)</option>
@@ -697,6 +698,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
         <div class="form-group"><label>Goal</label>
           <select id="prGoal">
             <option value="maintain">Maintain</option>
+            <option value="recomp">Recomp</option>
             <option value="lose-slow">Lose (Slow)</option>
             <option value="lose">Lose (Moderate)</option>
             <option value="gain-slow">Gain (Slow)</option>
@@ -714,6 +716,17 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
       <button class="btn" onclick="updateProfile()">✨ Recalculate Macros</button>
     </div>
 
+    <div class="card" id="goalWeightCard">
+      <h3>🎯 Weight Goal</h3>
+      <div class="form-row mb-16">
+        <div class="form-group"><label>Goal Weight</label><input type="number" id="prGoalWeight" step="0.1" placeholder="e.g. 60"></div>
+        <div class="form-group"><label>Target Date</label><input type="date" id="prGoalDate"></div>
+      </div>
+      <div id="goalFeedback" style="font-size:0.82rem;line-height:1.5;margin-bottom:12px;"></div>
+      <button class="btn btn-sm" onclick="setWeightGoal()">Set Goal & Recalculate</button>
+      <button class="btn btn-sm btn-outline" onclick="clearWeightGoal()" style="margin-top:8px;">Clear Goal</button>
+    </div>
+
     <div class="card">
       <h3>Data Management</h3>
       <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -726,7 +739,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 
     <div class="card">
       <h3>App Info</h3>
-      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.22</strong></div>
+      <div class="section-subtitle" style="margin-bottom: 0;">App version: <strong id="appVersionText">2026.06.24</strong></div>
       <div class="app-info-actions">
         <button class="btn btn-sm btn-outline" id="update-btn" onclick="checkForAppUpdate()">🔄 Check for Updates</button>
         <button class="btn btn-sm btn-outline" onclick="forceAppRefresh()">🔥 Force Refresh</button>
@@ -757,7 +770,7 @@ th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spa
 // ============================================================
 const DB_NAME = 'NutritionApp';
 const DB_VERSION = 2;
-const APP_VERSION = '2026.06.22';
+const APP_VERSION = '2026.06.24';
 const FOOD_SEARCH_LIMIT = 8;
 let db = null;
 
@@ -1131,7 +1144,7 @@ function calculateMacros(w, h, age, activity, goal, proteinPer, wUnit, hUnit) {
   const bmr = Math.round(10 * wKg + 6.25 * hCm - 5 * age - 161);
   const tdee = Math.round(bmr * activity);
 
-  const goalAdj = { 'lose-slow': -250, 'lose': -500, 'gain-slow': 250, 'gain': 500, 'maintain': 0 };
+  const goalAdj = { 'lose-slow': -250, 'lose': -500, 'gain-slow': 250, 'gain': 500, 'maintain': 0, 'recomp': 0 };
   let cals = Math.max(tdee + (goalAdj[goal] || 0), 1200);
 
   const protein = Math.round(wLbs * proteinPer);
@@ -1144,6 +1157,29 @@ function calculateMacros(w, h, age, activity, goal, proteinPer, wUnit, hUnit) {
   const fiber = Math.round(cals / 1000 * 14);
 
   return { bmr, tdee, cals, protein, fat, carbs, fiber, wKg, wLbs };
+}
+
+function calculateMacrosWithDeficit(profileData, deficit) {
+  const wKg = profileData.wUnit === 'lbs' ? profileData.weight / 2.20462 : profileData.weight;
+  const wLbs = profileData.wUnit === 'kg' ? profileData.weight * 2.20462 : profileData.weight;
+  const hCm = (profileData.hUnit || 'cm') === 'in' ? profileData.height * 2.54 : profileData.height;
+  const bmr = Math.round(10 * wKg + 6.25 * hCm - 5 * profileData.age - 161);
+  const tdee = Math.round(bmr * profileData.activity);
+  const cals = Math.max(tdee - deficit, 1200);
+  const proteinPer = profileData.proteinPref || 0.8;
+  const protein = Math.round(wLbs * proteinPer);
+  const minFat = Math.round(wLbs * 0.3);
+  const targetFatCals = Math.round(cals * 0.28);
+  let fat = Math.max(minFat, Math.round(targetFatCals / 9));
+  let carbCals = cals - (protein * 4) - (fat * 9);
+  if (carbCals < 0) { fat = minFat; carbCals = cals - (protein * 4) - (fat * 9); }
+  const carbs = Math.max(0, Math.round(carbCals / 4));
+  const fiber = Math.round(cals / 1000 * 14);
+  return { bmr, tdee, cals, protein, fat, carbs, fiber, wKg, wLbs };
+}
+
+function getGoalWeightDisplay(goalWeightKg, unit) {
+  return unit === 'lbs' ? round1(goalWeightKg * 2.20462) : round1(goalWeightKg);
 }
 
 // ============================================================
@@ -1189,8 +1225,16 @@ async function updateProfile() {
   const goal = document.getElementById('prGoal').value;
   const proteinPref = parseFloat(document.getElementById('prProteinPref').value);
 
+  profile = { ...profile, weight: w, height: h, age, activity, goal, proteinPref, wUnit, hUnit };
+  if (profile.goalWeightKg && profile.goalDate && (profile.goal === 'lose' || profile.goal === 'lose-slow')) {
+    const applied = await applyWeightGoal(profile.goalWeightKg, profile.goalDate, getGoalWeightDisplay(profile.goalWeightKg, wUnit));
+    if (applied) alert('Profile and goal updated! 🎉');
+    return;
+  }
+  delete profile.goalDeficit;
+
   const macros = calculateMacros(w, h, age, activity, goal, proteinPref, wUnit, hUnit);
-  profile = { ...profile, weight: w, height: h, age, activity, goal, proteinPref, wUnit, hUnit, macros };
+  profile.macros = macros;
   await dbPut('profile', profile, 'current');
   alert('Macros updated! 🎉');
   refreshAll();
@@ -1199,13 +1243,15 @@ async function updateProfile() {
 function refreshProfile() {
   if (!profile) return;
   document.getElementById('prWeight').value = profile.weight;
-  document.getElementById('prWeightUnit').value = profile.wUnit;
+  document.getElementById('prWeightUnit').value = profile.wUnit || 'kg';
   document.getElementById('prHeight').value = profile.height;
-  document.getElementById('prHeightUnit').value = profile.hUnit;
+  document.getElementById('prHeightUnit').value = profile.hUnit || 'cm';
   document.getElementById('prAge').value = profile.age;
   document.getElementById('prActivity').value = profile.activity;
   document.getElementById('prGoal').value = profile.goal;
   document.getElementById('prProteinPref').value = profile.proteinPref;
+  document.getElementById('prGoalWeight').value = profile.goalWeightKg ? getGoalWeightDisplay(profile.goalWeightKg, profile.wUnit || 'kg') : '';
+  document.getElementById('prGoalDate').value = profile.goalDate || '';
 
   const m = profile.macros;
   document.getElementById('profileName').textContent = (profile.name ? profile.name + "'s" : 'Your') + ' Targets';
@@ -1216,6 +1262,152 @@ function refreshProfile() {
     `<div class="ring-card fats"><div class="ring-label">Fat</div><div class="ring-value">${m.fat}g</div><div class="ring-sub">${m.fat*9} kcal</div></div>`;
   const appVersionText = document.getElementById('appVersionText');
   if (appVersionText) appVersionText.textContent = APP_VERSION;
+}
+
+async function applyWeightGoal(goalWeightKg, goalDate, goalWeightDisplay = null) {
+  if (!profile) return false;
+
+  const unit = profile.wUnit || 'kg';
+  const allWeights = (await dbGetAll('weightLog')).sort((a, b) => a.date.localeCompare(b.date));
+  const fallbackWeightKg = unit === 'lbs' ? profile.weight / 2.20462 : profile.weight;
+  const currentWeightKg = allWeights.length > 0 ? allWeights[allWeights.length - 1].weight : fallbackWeightKg;
+  const today = new Date(todayStr() + 'T12:00:00');
+  const target = new Date(goalDate + 'T12:00:00');
+  const daysToGoal = Math.round((target - today) / 86400000);
+
+  if (daysToGoal < 14) { alert('Target date must be at least 2 weeks away'); return false; }
+
+  const weightToLose = currentWeightKg - goalWeightKg;
+  if (weightToLose <= 0) {
+    alert('Goal weight must be less than your current weight for a fat loss goal. For gaining, use the standard goal setting.');
+    return false;
+  }
+
+  const weeksToGoal = daysToGoal / 7;
+  const requiredRateKgPerWeek = weightToLose / weeksToGoal;
+  const requiredDeficit = Math.round((requiredRateKgPerWeek * 7700) / 7);
+  const maxSafeRate = currentWeightKg * 0.01;
+  const maxSafeDeficit = 750;
+  const rateLimitedDeficit = Math.round((maxSafeRate * 7700) / 7);
+
+  let feedback = '';
+  let appliedDeficit = requiredDeficit;
+
+  if (requiredRateKgPerWeek > maxSafeRate) {
+    appliedDeficit = Math.min(rateLimitedDeficit, maxSafeDeficit);
+    const safeRateKgPerWeek = appliedDeficit * 7 / 7700;
+    const safeWeeks = Math.ceil(weightToLose / safeRateKgPerWeek);
+    const safeDate = new Date(today);
+    safeDate.setDate(safeDate.getDate() + safeWeeks * 7);
+    feedback = `<div style="color:var(--danger);margin-bottom:8px;"><strong>⚠️ Timeline too aggressive.</strong> Losing ${round1(requiredRateKgPerWeek)} kg/week exceeds the safe maximum of ${round1(maxSafeRate)} kg/week (1% body weight).</div>`;
+    feedback += `<div>Safest approach: <strong>${round1(safeRateKgPerWeek)} kg/week</strong> (${appliedDeficit} kcal/day deficit).</div>`;
+    feedback += `<div>Realistic target date: <strong>~${safeDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong> (${safeWeeks} weeks).</div>`;
+  } else if (requiredDeficit > maxSafeDeficit) {
+    appliedDeficit = maxSafeDeficit;
+    feedback = `<div style="color:var(--warning);margin-bottom:8px;"><strong>⚡ Ambitious but doable.</strong> Capped deficit at ${maxSafeDeficit} kcal/day for sustainability.</div>`;
+  } else if (requiredDeficit >= 400) {
+    feedback = `<div style="color:var(--success);">✅ <strong>Good plan.</strong> A ${requiredDeficit} kcal/day deficit will get you there at ~${round1(requiredRateKgPerWeek)} kg/week.</div>`;
+  } else {
+    feedback = `<div style="color:var(--success);">✅ <strong>Conservative & sustainable.</strong> A ${requiredDeficit} kcal/day deficit at ~${round1(requiredRateKgPerWeek)} kg/week. Slow but very maintainable.</div>`;
+  }
+
+  if (weeksToGoal > 16) {
+    feedback += `<div style="margin-top:8px;color:var(--text-muted);font-size:0.78rem;">💡 Tip: After 12-16 weeks of cutting, take a 2-4 week maintenance break to restore hormones and adherence, then resume.</div>`;
+  }
+
+  document.getElementById('goalFeedback').innerHTML = feedback;
+
+  const goalType = appliedDeficit >= 400 ? 'lose' : 'lose-slow';
+  profile.goalWeight = goalWeightDisplay ?? getGoalWeightDisplay(goalWeightKg, unit);
+  profile.goalWeightKg = goalWeightKg;
+  profile.goalDate = goalDate;
+  profile.goalDeficit = appliedDeficit;
+  profile.goal = goalType;
+  delete profile.goalReachedDismissed;
+  delete profile.goalReached;
+  delete profile.goalReachedDate;
+  profile.macros = calculateMacrosWithDeficit(profile, appliedDeficit);
+  await dbPut('profile', profile, 'current');
+  refreshAll();
+  return true;
+}
+
+async function setWeightGoal() {
+  const goalWeight = parseFloat(document.getElementById('prGoalWeight').value);
+  const goalDate = document.getElementById('prGoalDate').value;
+  if (!goalWeight || !goalDate) { alert('Please enter both a goal weight and target date'); return; }
+
+  const unit = profile.wUnit || 'kg';
+  const goalWeightKg = unit === 'lbs' ? goalWeight / 2.20462 : goalWeight;
+  await applyWeightGoal(goalWeightKg, goalDate, goalWeight);
+}
+
+async function clearWeightGoal() {
+  if (!confirm('Clear your weight goal?')) return;
+  delete profile.goalWeight;
+  delete profile.goalWeightKg;
+  delete profile.goalDate;
+  delete profile.goalDeficit;
+  delete profile.goalReached;
+  delete profile.goalReachedDate;
+  delete profile.goalReachedDismissed;
+  profile.macros = calculateMacros(profile.weight, profile.height, profile.age, profile.activity, profile.goal, profile.proteinPref || 0.8, profile.wUnit || 'kg', profile.hUnit || 'cm');
+  document.getElementById('prGoalWeight').value = '';
+  document.getElementById('prGoalDate').value = '';
+  document.getElementById('goalFeedback').innerHTML = '';
+  await dbPut('profile', profile, 'current');
+  refreshAll();
+}
+
+async function checkGoalReached() {
+  if (!profile || !profile.goalWeightKg || profile.goalReached || (profile.goal !== 'lose' && profile.goal !== 'lose-slow')) return;
+
+  const allWeights = (await dbGetAll('weightLog')).sort((a, b) => a.date.localeCompare(b.date));
+  if (allWeights.length < 3) return;
+
+  const recent = allWeights.slice(-7);
+  const avg = recent.reduce((sum, entry) => sum + entry.weight, 0) / recent.length;
+  if (avg > profile.goalWeightKg + 0.2 || profile.goalReachedDismissed) return;
+
+  const goalDisplay = getGoalWeightDisplay(profile.goalWeightKg, profile.wUnit || 'kg');
+  const switchToMaintain = confirm(`🎉 Congratulations! You've reached your goal weight of ${goalDisplay} ${profile.wUnit || 'kg'}!\n\nWould you like to switch to maintenance mode?\n\nOK = Switch to maintenance\nCancel = More options`);
+  if (switchToMaintain) {
+    await switchToMaintenance();
+    return;
+  }
+
+  const switchToRecompNow = confirm('Would you prefer recomp mode instead?\n\nOK = Switch to recomp\nCancel = Dismiss for now');
+  if (switchToRecompNow) {
+    await switchToRecomp();
+    return;
+  }
+
+  profile.goalReachedDismissed = true;
+  await dbPut('profile', profile, 'current');
+}
+
+async function switchToMaintenance() {
+  profile.goal = 'maintain';
+  delete profile.goalDeficit;
+  profile.goalReached = true;
+  profile.goalReachedDate = todayStr();
+  profile.macros = calculateMacros(profile.weight, profile.height, profile.age, profile.activity, 'maintain', profile.proteinPref || 0.8, profile.wUnit || 'kg', profile.hUnit || 'cm');
+  await dbPut('profile', profile, 'current');
+
+  alert(`Switched to maintenance! 🎯\n\nYour new daily target is ${profile.macros.cals} kcal.\nProtein stays high to preserve muscle.\n\nTip: Maintain for at least as long as you cut before starting another phase.`);
+  refreshAll();
+}
+
+async function switchToRecomp() {
+  profile.goal = 'recomp';
+  delete profile.goalDeficit;
+  profile.goalReached = true;
+  profile.goalReachedDate = todayStr();
+  profile.macros = calculateMacros(profile.weight, profile.height, profile.age, profile.activity, 'recomp', profile.proteinPref || 0.8, profile.wUnit || 'kg', profile.hUnit || 'cm');
+  await dbPut('profile', profile, 'current');
+
+  alert(`Switched to recomp! 💪\n\nYour new daily target is ${profile.macros.cals} kcal.\nFocus on lifting performance, steps, and high protein while you hold around goal weight.`);
+  refreshAll();
 }
 
 // ============================================================
@@ -1731,6 +1923,8 @@ async function refreshWeight() {
       return `<div class="weight-entry"><span>${label}</span><span style="font-weight:600">${toDisplay(w.weight)} ${unitLabel}</span><button class="remove-btn" onclick="deleteWeight('${w.date}')">✕</button></div>`;
     }).join('');
   }
+
+  checkGoalReached();
 }
 
 async function deleteWeight(date) {
@@ -1859,8 +2053,7 @@ function renderWeightProjection(weights, toDisplay, unitLabel) {
   const significantDiff = actualRateKg !== null && Math.abs(actualRateKg - expectedRateKg) >= 0.1;
   const projectionRateKg = actualRateKg !== null && actualRateKg > 0 ? actualRateKg : expectedRateKg;
 
-  const profileWeightKg = profile.wUnit === 'lbs' ? profile.weight / 2.20462 : profile.weight;
-  const targetWeightKg = profileWeightKg < lastWeightKg - 0.1 ? profileWeightKg : null;
+  const targetWeightKg = profile.goalWeightKg || null;
 
   let targetDate = null;
   if (targetWeightKg !== null && projectionRateKg > 0) {
