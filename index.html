@@ -1294,9 +1294,16 @@ async function applyWeightGoal(goalWeightKg, goalDate, goalWeightDisplay = null)
   const maxSafeDeficit = 750;
   const rateLimitedDeficit = Math.round((maxSafeRate * 7700) / 7);
 
+  // Calculate current deficit from existing macros
+  const currentTdee = profile.macros ? profile.macros.tdee : 0;
+  const currentCals = profile.macros ? profile.macros.cals : 0;
+  const currentDeficit = currentTdee - currentCals;
+  const currentRateKgPerWeek = currentDeficit > 0 ? (currentDeficit * 7 / 7700) : 0;
+
   let feedback = '';
   let appliedDeficit = requiredDeficit;
 
+  // Safety cap
   if (requiredRateKgPerWeek > maxSafeRate) {
     appliedDeficit = Math.min(rateLimitedDeficit, maxSafeDeficit);
     const safeRateKgPerWeek = appliedDeficit * 7 / 7700;
@@ -1309,10 +1316,35 @@ async function applyWeightGoal(goalWeightKg, goalDate, goalWeightDisplay = null)
   } else if (requiredDeficit > maxSafeDeficit) {
     appliedDeficit = maxSafeDeficit;
     feedback = `<div style="color:var(--warning);margin-bottom:8px;"><strong>⚡ Ambitious but doable.</strong> Capped deficit at ${maxSafeDeficit} kcal/day for sustainability.</div>`;
-  } else if (requiredDeficit >= 400) {
-    feedback = `<div style="color:var(--success);">✅ <strong>Good plan.</strong> A ${requiredDeficit} kcal/day deficit will get you there at ~${round1(requiredRateKgPerWeek)} kg/week.</div>`;
-  } else {
-    feedback = `<div style="color:var(--success);">✅ <strong>Conservative & sustainable.</strong> A ${requiredDeficit} kcal/day deficit at ~${round1(requiredRateKgPerWeek)} kg/week. Slow but very maintainable.</div>`;
+  }
+
+  // Check if current macros already get them there faster
+  if (currentDeficit > 0 && currentDeficit >= appliedDeficit) {
+    const currentWeeksToGoal = weightToLose / currentRateKgPerWeek;
+    const earlierDate = new Date(today);
+    earlierDate.setDate(earlierDate.getDate() + Math.round(currentWeeksToGoal * 7));
+    const earlierDateStr = earlierDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const targetDateStr = target.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    feedback = `<div style="margin-bottom:10px;"><strong>💡 Your current macros (${currentCals} kcal/day, -${currentDeficit} kcal deficit) will get you there faster!</strong></div>`;
+    feedback += `<div style="margin-bottom:6px;">• At your current pace (~${round1(currentRateKgPerWeek)} kg/week) you'll hit ${getGoalWeightDisplay(goalWeightKg, unit)} ${unit} by <strong>~${earlierDateStr}</strong></div>`;
+    feedback += `<div style="margin-bottom:10px;">• The timeline you set (${targetDateStr}) only needs a -${appliedDeficit} kcal/day deficit (~${round1(requiredRateKgPerWeek)} kg/week)</div>`;
+
+    document.getElementById('goalFeedback').innerHTML = feedback +
+      `<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">` +
+      `<button class="btn btn-sm" onclick="confirmGoalKeepMacros('${goalDate}', ${goalWeightKg}, ${goalWeightDisplay ? "'" + goalWeightDisplay + "'" : 'null'})">✅ Keep current macros (reach goal by ~${earlierDateStr})</button>` +
+      `<button class="btn btn-sm btn-outline" onclick="confirmGoalEaseMacros('${goalDate}', ${goalWeightKg}, ${appliedDeficit}, ${goalWeightDisplay ? "'" + goalWeightDisplay + "'" : 'null'})">🍃 Ease up — slower pace to ${targetDateStr} (${appliedDeficit} kcal/day deficit)</button>` +
+      `</div>`;
+    return true;
+  }
+
+  // Current macros are not enough — need to increase deficit
+  if (!feedback) {
+    if (appliedDeficit >= 400) {
+      feedback = `<div style="color:var(--success);">✅ <strong>Good plan.</strong> A ${appliedDeficit} kcal/day deficit will get you there at ~${round1(requiredRateKgPerWeek)} kg/week.</div>`;
+    } else {
+      feedback = `<div style="color:var(--success);">✅ <strong>Conservative & sustainable.</strong> A ${appliedDeficit} kcal/day deficit at ~${round1(requiredRateKgPerWeek)} kg/week. Slow but very maintainable.</div>`;
+    }
   }
 
   if (weeksToGoal > 16) {
@@ -1334,6 +1366,39 @@ async function applyWeightGoal(goalWeightKg, goalDate, goalWeightDisplay = null)
   await dbPut('profile', profile, 'current');
   refreshAll();
   return true;
+}
+
+async function confirmGoalKeepMacros(goalDate, goalWeightKg, goalWeightDisplay) {
+  const unit = profile.wUnit || 'kg';
+  const currentDeficit = profile.macros.tdee - profile.macros.cals;
+  profile.goalWeight = goalWeightDisplay ?? getGoalWeightDisplay(goalWeightKg, unit);
+  profile.goalWeightKg = goalWeightKg;
+  profile.goalDate = goalDate;
+  profile.goalDeficit = currentDeficit;
+  delete profile.goalReachedDismissed;
+  delete profile.goalReached;
+  delete profile.goalReachedDate;
+  // Keep current macros — don't recalculate
+  await dbPut('profile', profile, 'current');
+  document.getElementById('goalFeedback').innerHTML = `<div style="color:var(--success);">✅ Goal set! Keeping your current macros (${profile.macros.cals} kcal/day). You'll get there ahead of schedule.</div>`;
+  refreshAll();
+}
+
+async function confirmGoalEaseMacros(goalDate, goalWeightKg, deficit, goalWeightDisplay) {
+  const unit = profile.wUnit || 'kg';
+  const goalType = deficit >= 400 ? 'lose' : 'lose-slow';
+  profile.goalWeight = goalWeightDisplay ?? getGoalWeightDisplay(goalWeightKg, unit);
+  profile.goalWeightKg = goalWeightKg;
+  profile.goalDate = goalDate;
+  profile.goalDeficit = deficit;
+  profile.goal = goalType;
+  delete profile.goalReachedDismissed;
+  delete profile.goalReached;
+  delete profile.goalReachedDate;
+  profile.macros = calculateMacrosWithDeficit(profile, deficit);
+  await dbPut('profile', profile, 'current');
+  document.getElementById('goalFeedback').innerHTML = `<div style="color:var(--success);">✅ Macros eased to ${profile.macros.cals} kcal/day (-${deficit} deficit). A gentler pace to your goal.</div>`;
+  refreshAll();
 }
 
 async function setWeightGoal() {
