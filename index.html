@@ -188,6 +188,8 @@ body {
 .food-details-inner { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0.15rem 0.45rem; font-size: 0.78rem; color: var(--text-muted); }
 .food-details-inner .fd-macros span { margin-right: 0.6rem; }
 .food-details-inner .fd-delete { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.82rem; padding: 0.2rem 0.4rem; }
+.food-details-inner .fd-modify { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.82rem; font-weight: 600; padding: 0.2rem 0.4rem; }
+.food-details-inner .fd-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
 .food-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 300; display: flex; align-items: flex-end; justify-content: center; }
 .food-modal { background: var(--bg-card); border-radius: 24px 24px 0 0; padding: 1.2rem; padding-bottom: calc(1.2rem + env(safe-area-inset-bottom)); width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto; animation: slideUpModal .28s ease; box-shadow: 0 -4px 24px rgba(0,0,0,0.15); }
 @keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -1979,7 +1981,7 @@ function refreshLog() {
     meal.items.forEach((item, ii) => {
       const iCals = Math.round(item.p * 4 + item.c * 4 + item.f * 9);
       html += `<div class="food-item" onclick="this.classList.toggle('expanded')"><span class="fi-name">${escHtml(item.name)}</span><span class="fi-kcal">${iCals}</span><span class="fi-chev">›</span></div>`;
-      html += `<div class="food-details"><div class="food-details-inner"><div class="fd-macros"><span>P: ${round1(item.p)}g</span><span>C: ${round1(item.c)}g</span><span>F: ${round1(item.f)}g</span></div><button class="fd-delete" onclick="event.stopPropagation();removeItem(${mi},${ii})">✕ Remove</button></div></div>`;
+      html += `<div class="food-details"><div class="food-details-inner"><div class="fd-macros"><span>P: ${round1(item.p)}g</span><span>C: ${round1(item.c)}g</span><span>F: ${round1(item.f)}g</span></div><div class="fd-actions"><button class="fd-modify" onclick="event.stopPropagation();modifyItem(${mi},${ii})">✎ Modify</button><button class="fd-delete" onclick="event.stopPropagation();removeItem(${mi},${ii})">✕ Remove</button></div></div></div>`;
     });
     html += `<button class="add-food-btn" style="width:100%;padding:10px;border-radius:10px;margin-top:8px;" onclick="openFoodModal(${mi})">+ Add Food</button>`;
     html += `</div>`;
@@ -2010,6 +2012,85 @@ async function removeItem(mi, ii) {
   await saveLogDay();
   refreshLog();
 }
+
+// === MODIFY LOGGED FOOD ITEM ===
+function parseItemAmount(name) {
+  const m = String(name || '').match(/\(([\d.]+)(\s*[a-zA-Z][a-zA-Z ]*)\)\s*$/);
+  if (!m) return null;
+  return { amt: parseFloat(m[1]), unit: m[2] || 'g' };
+}
+
+function modifyItem(mi, ii) {
+  const item = logMeals[mi] && logMeals[mi].items[ii];
+  if (!item) return;
+  window._modCtx = { mi, ii };
+  const parsed = parseItemAmount(item.name);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'food-modal-overlay';
+  overlay.id = 'mod-modal';
+  overlay.onclick = function(e) { if (e.target === overlay) closeModifyItem(); };
+
+  let body;
+  if (parsed && parsed.amt > 0) {
+    const baseName = item.name.replace(/\s*\([^)]*\)\s*$/, '');
+    const per = { p: (item.p || 0) / parsed.amt, c: (item.c || 0) / parsed.amt, f: (item.f || 0) / parsed.amt };
+    window._modBase = { name: baseName, unit: parsed.unit, per };
+    const step = (parsed.unit.trim() === 'g' || parsed.unit.trim() === 'ml') ? 5 : 1;
+    body = `<div class="food-serving-edit"><div class="fse-name">${escHtml(baseName)}</div>` +
+      `<div class="fse-row" style="margin-top:0.4rem"><label>Amount</label>` +
+      `<input id="mod-amt" type="number" min="0" step="${step}" value="${parsed.amt}" oninput="modUpdateCalc()"> ` +
+      `<span class="fse-unit">${parsed.unit.trim() || 'g'}</span></div>` +
+      `<div class="fse-macros" id="mod-macros" style="margin:0.5rem 0"></div>` +
+      `<button class="modal-add-btn" onclick="modSave()">✓ Save</button></div>`;
+  } else {
+    window._modBase = null;
+    const iCals = Math.round((item.p || 0) * 4 + (item.c || 0) * 4 + (item.f || 0) * 9);
+    body = `<div class="food-serving-edit"><div class="fse-name">${escHtml(item.name)}</div>` +
+      `<div style="font-size:0.78rem;color:var(--text-muted);margin:0.3rem 0">No amount in the name — edit the macros directly.</div>` +
+      `<div class="fse-row"><label>Protein g</label><input id="mod-p" type="number" min="0" step="0.1" value="${item.p || 0}"></div>` +
+      `<div class="fse-row"><label>Carbs g</label><input id="mod-c" type="number" min="0" step="0.1" value="${item.c || 0}"></div>` +
+      `<div class="fse-row"><label>Fat g</label><input id="mod-f" type="number" min="0" step="0.1" value="${item.f || 0}"></div>` +
+      `<button class="modal-add-btn" style="margin-top:0.5rem" onclick="modSave()">✓ Save</button></div>`;
+  }
+  overlay.innerHTML = `<div class="food-modal"><h3>✎ Modify item</h3>${body}` +
+    `<button class="modal-cancel-btn" onclick="closeModifyItem()">Cancel</button></div>`;
+  document.body.appendChild(overlay);
+  if (window._modBase) modUpdateCalc();
+}
+
+function modUpdateCalc() {
+  const b = window._modBase;
+  if (!b) return;
+  const amt = parseFloat((document.getElementById('mod-amt') || {}).value) || 0;
+  const el = document.getElementById('mod-macros');
+  if (el) el.innerHTML = `<strong>${Math.round((b.per.p * amt) * 4 + (b.per.c * amt) * 4 + (b.per.f * amt) * 9)}</strong> kcal · <strong>${round1(b.per.p * amt)}</strong>g P · <strong>${round1(b.per.c * amt)}</strong>g C · <strong>${round1(b.per.f * amt)}</strong>g F`;
+}
+
+async function modSave() {
+  const ctx = window._modCtx;
+  if (!ctx) return;
+  const item = logMeals[ctx.mi] && logMeals[ctx.mi].items[ctx.ii];
+  if (!item) { closeModifyItem(); return; }
+  const b = window._modBase;
+  if (b) {
+    const amt = parseFloat((document.getElementById('mod-amt') || {}).value) || 0;
+    if (amt <= 0) { closeModifyItem(); return; }
+    item.name = b.name + ' (' + amt + b.unit + ')';
+    item.p = round1(b.per.p * amt);
+    item.c = round1(b.per.c * amt);
+    item.f = round1(b.per.f * amt);
+  } else {
+    item.p = parseFloat((document.getElementById('mod-p') || {}).value) || 0;
+    item.c = parseFloat((document.getElementById('mod-c') || {}).value) || 0;
+    item.f = parseFloat((document.getElementById('mod-f') || {}).value) || 0;
+  }
+  await saveLogDay();
+  closeModifyItem();
+  refreshLog();
+}
+
+function closeModifyItem() { const m = document.getElementById('mod-modal'); if (m) m.remove(); }
 
 // Update a ring set (dashboard or log)
 function updateRingSet(prefix, totals, macros) {
