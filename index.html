@@ -2617,6 +2617,55 @@ async function generateInsights() {
     }
   }
 
+  // --- Cut duration & maintenance break reminders ---
+  const lossGoal = profile.goal === 'lose' || profile.goal === 'lose-slow';
+  if (lossGoal) {
+    const cutStartDate = profile.goalDate ? profile.createdAt : profile.createdAt;
+    // Use the earliest of: goal set date, profile creation, or first weight log
+    let cutStart = profile.createdAt || todayStr();
+    if (profile.goalDate && profile.createdAt) {
+      cutStart = profile.createdAt;
+    }
+    if (weights.length > 0 && weights[0].date < cutStart) {
+      cutStart = weights[0].date;
+    }
+
+    const startMs = new Date(cutStart + 'T12:00:00').getTime();
+    const nowMs = new Date(todayStr() + 'T12:00:00').getTime();
+    const weeksIn = Math.floor((nowMs - startMs) / (7 * 86400000));
+
+    if (weeksIn >= 1) {
+      // Always show how many weeks they've been tracking
+      let durationText = `You've been tracking for <strong>${weeksIn} week${weeksIn !== 1 ? 's' : ''}</strong>`;
+
+      // Add weight progress if available
+      if (weights.length >= 2) {
+        const startWeight = weights[0].weight;
+        const latestWeight = weights[weights.length - 1].weight;
+        const totalLoss = startWeight - latestWeight;
+        const unit = profile.wUnit || 'kg';
+        const toDisplay = (wKg) => unit === 'lbs' ? round1(wKg * 2.20462) : round1(wKg);
+        if (totalLoss > 0) {
+          durationText += ` and lost <strong>${toDisplay(totalLoss)} ${unit}</strong> so far`;
+        }
+      }
+      durationText += '. ';
+
+      // Milestone-based messages
+      if (weeksIn >= 14) {
+        insights.unshift({ icon: '🛑', text: durationText + `<strong>You've been in a deficit for ${weeksIn} weeks — it's time for a maintenance break.</strong> Take 2-4 weeks eating at maintenance (TDEE) to restore energy, hormones, and adherence. You can resume your cut afterwards refreshed and stronger. Go to Profile → Weight Goal to pause.` });
+      } else if (weeksIn >= 10) {
+        insights.unshift({ icon: '⏰', text: durationText + `You're approaching the <strong>12-16 week recommended cut limit</strong>. Start thinking about a 2-4 week maintenance break soon — it helps your body and mind reset before continuing.` });
+      } else if (weeksIn >= 8) {
+        insights.unshift({ icon: '📊', text: durationText + `You're <strong>over halfway through a typical cut cycle</strong>. Keep going — consistency is paying off! A maintenance break in 4-8 weeks will help lock in your progress.` });
+      } else if (weeksIn >= 4) {
+        insights.unshift({ icon: '🔥', text: durationText + `<strong>Great consistency!</strong> You're building solid habits. Keep hitting your protein and staying active — the results will compound.` });
+      } else {
+        insights.push({ icon: '🌱', text: durationText + `Early days — focus on building the habit of logging consistently. Don't stress about perfection.` });
+      }
+    }
+  }
+
   return insights.slice(0, 5); // Max 5 insights
 }
 
